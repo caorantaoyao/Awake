@@ -1,0 +1,15 @@
+- [x] config.py 新增 DeerFlow 配置项且带合理默认值（DEERFLOW_ENABLED 默认 false）
+- [x] .env.example 包含 DeerFlow 配置示例
+- [x] schemas.py 新增 ChatMessage/ChatRequest/ChatResponse/ExtractTaskRequest 且字段校验合理
+- [x] deerflow_service.chat 在启用时转发 DeerFlow，未启用/失败时返回 mock 苏格拉底回复且不抛 500
+- [x] deerflow_service.extract_task 能从对话历史产出一条微任务描述
+- [x] POST /api/chat 正常返回 AI 回复并带 mode 标记
+- [x] POST /api/chat/extract-task 对已注册学生创建任务并返回 task，对未注册学生返回 404
+- [x] 欢迎邮件按钮链接指向 FRONTEND_URL/chat?email=<邮箱>，不再使用 Aily 链接
+- [x] 前端 /chat 路由可访问，Chat.jsx 实现多轮对话、加载态、接受任务入口
+- [x] client.js 的 sendChat/extractTask 正确对接后端接口
+- [x] Success.jsx 主 CTA 引导至 /chat
+- [x] Chat 页面视觉与 Awaken 品牌一致、精美且响应式（消息气泡、留白、动效）
+- [x] 后端 pytest 全量通过（含新增 chat 用例）
+- [x] 前端 npm run build 通过
+- [x] 端到端流程（注册→/chat 多轮对话→接受任务→打卡）在浏览器中实际跑通并截图

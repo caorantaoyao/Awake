@@ -1,0 +1,23 @@
+# DeerFlow 本地对话引擎（独立 clone，不纳入 Awaken 版本库）
+deer-flow/
+
+# 依赖与虚拟环境
+backend/venv/
+frontend/node_modules/
+frontend/dist/
+
+# 密钥与本地配置
+backend/.env
+deer-flow/.env
+deer-flow/conf.yaml
+deer-flow/config.yaml
+
+# 本地数据库与缓存
+backend/*.db
+backend/.pytest_cache/
+**/__pycache__/
+*.pyc
+
+# 日志
+logs/
+*.log

@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Awaken — AI 助你规划升学与职业未来</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ========== Reset & Base ========== */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Plus Jakarta Sans', "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #f8f8fb;
+    color: #1f2430;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; }
+  a { text-decoration: none; color: inherit; }
+  img { display: block; max-width: 100%; }
+
+  /* ========== Navbar ========== */
+  .navbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(248,248,251,0.85);
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    padding: 0 56px;
+    height: 76px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .nav-left {
+    display: flex;
+    align-items: center;
+    gap: 48px;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .logo-icon {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #1f6fe5 0%, #1557c9 100%);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(31,111,229,0.25);
+  }
+  .logo-icon svg { width: 24px; height: 24px; }
+  .logo-text {
+    font-size: 30px;
+    font-weight: 800;
+    color: #12213f;
+    letter-spacing: -0.8px;
+    position: relative;
+  }
+  .logo-text .tm {
+    font-size: 10px;
+    font-weight: 600;
+    position: absolute;
+    top: 5px;
+    right: -10px;
+    color: #12213f;
+  }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 36px;
+    list-style: none;
+  }
+  .nav-link {
+    font-size: 17px;
+    font-weight: 500;
+    color: #3a3f4e;
+    transition: color 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+  }
+  .nav-link:hover { color: #1557c9; }
+  .nav-link .chevron {
+    width: 14px;
+    height: 14px;
+    margin-top: 1px;
+    color: #6b7280;
+    transition: transform 0.15s ease;
+  }
+  .nav-link:hover .chevron { transform: rotate(180deg); color: #1557c9; }
+
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #1f6fe5;
+    color: #ffffff;
+    font-size: 17px;
+    font-weight: 600;
+    padding: 12px 28px;
+    border-radius: 999px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    letter-spacing: -0.1px;
+  }
+  .btn-primary:hover {
+    background: #1250b8;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(31,111,229,0.3);
+  }
+  .btn-primary:active { transform: translateY(0); }
+
+  .link-login {
+    font-size: 17px;
+    font-weight: 500;
+    color: #3a3f4e;
+    transition: color 0.15s ease;
+  }
+  .link-login:hover { color: #1557c9; }
+
+  /* ========== Hero Section ========== */
+  .hero {
+    padding: 60px 56px 100px;
+    max-width: 1440px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1.1fr;
+    gap: 64px;
+    align-items: center;
+    min-height: calc(100vh - 76px);
+  }
+
+  /* Hero Left - Copy */
+  .hero-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    max-width: 560px;
+  }
+  .hero-eyebrow {
+    font-size: 20px;
+    font-weight: 500;
+    color: #1f6fe5;
+    margin-bottom: 14px;
+    letter-spacing: -0.2px;
+  }
+  .hero-title {
+    font-size: 60px;
+    font-weight: 700;
+    color: #3a3a4a;
+    line-height: 1.08;
+    letter-spacing: -1.5px;
+    margin-bottom: 22px;
+  }
+  .hero-desc {
+    font-size: 19px;
+    font-weight: 400;
+    color: #4b5563;
+    line-height: 1.6;
+    margin-bottom: 40px;
+    max-width: 520px;
+  }
+  .hero-cta {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+  }
+  .btn-hero-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #1f6fe5;
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: 600;
+    padding: 17px 40px;
+    border-radius: 999px;
+    transition: all 0.2s ease;
+    letter-spacing: -0.1px;
+    box-shadow: 0 4px 14px rgba(31,111,229,0.2);
+  }
+  .btn-hero-primary:hover {
+    background: #1250b8;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(31,111,229,0.32);
+  }
+  .btn-hero-explore {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1f2430;
+    border-bottom: 2px solid #1f2430;
+    padding-bottom: 2px;
+    transition: all 0.2s ease;
+  }
+  .btn-hero-explore:hover {
+    color: #1557c9;
+    border-bottom-color: #1557c9;
+  }
+  .btn-hero-explore svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* Hero Right - Visual */
+  .hero-visual {
+    position: relative;
+    width: 100%;
+  }
+  .hero-image-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px rgba(31,111,229,0.18), 0 8px 24px rgba(0,0,0,0.08);
+  }
+  .hero-image-wrap::after {
+    /* Purple color overlay to match the indigo/purple grading in the reference */
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(31,111,229,0.08) 0%, rgba(77,148,255,0.04) 50%, rgba(122,178,255,0.06) 100%);
+    pointer-events: none;
+    z-index: 2;
+  }
+  /* Top-right purple blob shape */
+  .hero-image-wrap::before {
+    content: '';
+    position: absolute;
+    top: -60px;
+    right: -80px;
+    width: 280px;
+    height: 280px;
+    background: radial-gradient(circle, rgba(51,133,255,0.3) 0%, rgba(102,163,255,0.12) 40%, transparent 70%);
+    border-radius: 50%;
+    filter: blur(30px);
+    z-index: 1;
+    pointer-events: none;
+  }
+  .hero-image-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 25%;
+  }
+
+  /* ========== Floating Cards ========== */
+  .float-card {
+    position: absolute;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 12px 40px rgba(31,111,229,0.12), 0 4px 12px rgba(0,0,0,0.06);
+    padding: 18px 22px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  /* Top-left Badge Card */
+  .card-badge {
+    top: -20px;
+    left: -32px;
+    gap: 16px;
+  }
+  .badge-progress {
+    position: relative;
+    width: 56px;
+    height: 56px;
+    flex-shrink: 0;
+  }
+  .badge-progress svg {
+    width: 56px;
+    height: 56px;
+    transform: rotate(-90deg);
+  }
+  .progress-track {
+    fill: none;
+    stroke: #dbe9ff;
+    stroke-width: 7;
+  }
+  .progress-bar-circle {
+    fill: none;
+    stroke: url(#progressGrad);
+    stroke-width: 7;
+    stroke-linecap: round;
+    stroke-dasharray: 138;
+    stroke-dashoffset: 104; /* ~25% */
+  }
+  .progress-dot {
+    position: absolute;
+    bottom: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #fff;
+    padding: 2px 8px;
+    border-radius: 999px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    font-size: 11px;
+    font-weight: 700;
+    color: #1f6fe5;
+    white-space: nowrap;
+  }
+  .progress-dot::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background: #4d94ff;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .badge-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .badge-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #1557c9;
+  }
+  .badge-label .trophy {
+    font-size: 16px;
+  }
+  .badge-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1f2430;
+    letter-spacing: -0.3px;
+  }
+
+  /* Bottom-right Action Items Card */
+  .card-actions {
+    bottom: -16px;
+    right: -24px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 20px 24px;
+    min-width: 260px;
+  }
+  .actions-header {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1557c9;
+    letter-spacing: -0.1px;
+  }
+  .actions-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .actions-check {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+  }
+  .actions-check svg {
+    width: 16px;
+    height: 16px;
+    color: #fff;
+  }
+  .actions-text {
+    font-size: 14px;
+    font-weight: 500;
+    color: #4b5563;
+    line-height: 1.4;
+  }
+
+  /* ========== Responsive ========== */
+  @media (max-width: 1200px) {
+    .navbar { padding: 0 32px; }
+    .hero { padding: 48px 32px 80px; gap: 40px; }
+    .hero-title { font-size: 50px; }
+    .card-badge { left: -16px; }
+    .card-actions { right: -12px; }
+  }
+  @media (max-width: 960px) {
+    .nav-links { display: none; }
+    .hero {
+      grid-template-columns: 1fr;
+      padding: 40px 24px 60px;
+      gap: 48px;
+      min-height: auto;
+    }
+    .hero-copy { max-width: 100%; }
+    .hero-title { font-size: 42px; }
+    .card-badge { top: -12px; left: 12px; }
+    .card-actions { bottom: -12px; right: 12px; }
+  }
+  @media (max-width: 640px) {
+    .navbar { padding: 0 20px; height: 68px; }
+    .nav-right .btn-primary { padding: 10px 20px; font-size: 15px; }
+    .link-login { display: none; }
+    .hero-title { font-size: 34px; }
+    .hero-eyebrow { font-size: 17px; }
+    .hero-desc { font-size: 17px; }
+    .hero-cta { flex-direction: column; align-items: flex-start; gap: 18px; }
+    .btn-hero-primary { width: 100%; padding: 15px 32px; }
+    .card-badge { padding: 12px 16px; gap: 10px; }
+    .badge-title { font-size: 18px; }
+    .card-actions { min-width: auto; padding: 14px 18px; }
+  }
+
+  /* ========== Entry animation ========== */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes floatIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .hero-eyebrow { animation: fadeUp 0.7s ease-out 0.1s both; }
+  .hero-title { animation: fadeUp 0.7s ease-out 0.2s both; }
+  .hero-desc { animation: fadeUp 0.7s ease-out 0.3s both; }
+  .hero-cta { animation: fadeUp 0.7s ease-out 0.4s both; }
+  .hero-image-wrap { animation: fadeUp 0.9s ease-out 0.3s both; }
+  .card-badge { animation: floatIn 0.8s cubic-bezier(0.22,1,0.36,1) 0.8s both; }
+  .card-actions { animation: floatIn 0.8s cubic-bezier(0.22,1,0.36,1) 1s both; }
+</style>
+</head>
+<body>
+
+<!-- ========== Navbar ========== -->
+<header class="navbar">
+  <div class="nav-left">
+    <a href="#" class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path fill="white" fill-rule="evenodd" clip-rule="evenodd" d="M12 3.6L21 19.4H15.9L12 12.2L9.4 17H14L15.3 19.4H3L12 3.6ZM12 8.5L9.9 12.3H14.1L12 8.5Z"/>
+        </svg>
+      </div>
+      <span class="logo-text">Awaken<span class="tm">™</span></span>
+    </a>
+    <nav>
+      <ul class="nav-links">
+        <li><a href="#" class="nav-link">产品原理</a></li>
+        <li><a href="#" class="nav-link">升学顾问</a></li>
+        <li><a href="#" class="nav-link">用户心声</a></li>
+        <li>
+          <a href="#" class="nav-link">
+            资源中心
+            <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </a>
+        </li>
+        <li><a href="#" class="nav-link">联系我们</a></li>
+      </ul>
+    </nav>
+  </div>
+  <div class="nav-right">
+    <a href="#" class="btn-primary">立即注册</a>
+    <a href="#" class="link-login">登录</a>
+  </div>
+</header>
+
+<!-- ========== Hero ========== -->
+<section class="hero">
+  <!-- Left Copy -->
+  <div class="hero-copy">
+    <p class="hero-eyebrow">升学、职业、未来可期</p>
+    <h1 class="hero-title">AI 助你规划下一步</h1>
+    <p class="hero-desc">
+      Awaken 帮你发现真正适合的职业方向，量身打造分阶段路线图，为你的未来采取切实行动。
+    </p>
+    <div class="hero-cta">
+      <a href="#" class="btn-hero-primary">免费注册</a>
+      <a href="#" class="btn-hero-explore">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="7"/>
+          <path d="M21 21l-4.3-4.3"/>
+        </svg>
+        探索 Awaken
+      </a>
+    </div>
+  </div>
+
+  <!-- Right Visual -->
+  <div class="hero-visual">
+    <div class="hero-image-wrap">
+      <img src="hero-students-blue.jpg" alt="两位中国学生一起使用 Awaken 学习" />
+    </div>
+
+    <!-- Floating Card: Badge -->
+    <div class="float-card card-badge">
+      <div class="badge-progress">
+        <svg viewBox="0 0 56 56">
+          <defs>
+            <linearGradient id="progressGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#4d94ff"/>
+              <stop offset="100%" stop-color="#1f6fe5"/>
+            </linearGradient>
+          </defs>
+          <circle class="progress-track" cx="28" cy="28" r="22"/>
+          <circle class="progress-bar-circle" cx="28" cy="28" r="22"/>
+        </svg>
+        <span class="progress-dot">+25%</span>
+      </div>
+      <div class="badge-content">
+        <span class="badge-label"><span class="trophy">🏆</span> 新徽章解锁！</span>
+        <span class="badge-title">探路者</span>
+      </div>
+    </div>
+
+    <!-- Floating Card: Action Items -->
+    <div class="float-card card-actions">
+      <span class="actions-header">待办行动</span>
+      <div class="actions-item">
+        <div class="actions-check">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </div>
+        <span class="actions-text">报名一门 AI 方向的在线课程或工作坊</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SVG gradient definition for progress ring is inline above -->
+
+</body>
+</html>
