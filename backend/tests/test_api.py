@@ -1,4 +1,16 @@
+import importlib
+import importlib.util
+
 import pytest
+from sqlalchemy import create_engine, text
+
+from app.models.models import GradeEnum as ModelGradeEnum
+from app.models.models import Student
+from app.services import auth_service
+
+
+TEST_PASSWORD = "StrongPass123!"
+LEGACY_PASSWORD = "LegacyPass123!"
 
 
 class TestHealthCheck:
@@ -11,11 +23,12 @@ class TestHealthCheck:
 
 
 class TestRegisterAPI:
-    def test_register_success(self, client):
+    def test_register_success(self, client, db_session):
         response = client.post("/api/register", json={
             "name": "张三",
             "email": "zhangsan@example.com",
-            "grade": "高一"
+            "grade": "高一",
+            "password": TEST_PASSWORD
         })
         assert response.status_code == 201
         data = response.json()
@@ -24,20 +37,37 @@ class TestRegisterAPI:
         assert data["data"]["student"]["name"] == "张三"
         assert data["data"]["student"]["email"] == "zhangsan@example.com"
         assert data["data"]["student"]["grade"] == "高一"
+        assert "password" not in data["data"]["student"]
+        assert "password_hash" not in data["data"]["student"]
+
+        student = db_session.query(Student).filter(Student.email == "zhangsan@example.com").one()
+        assert student.password_hash
+        assert student.password_hash != TEST_PASSWORD
+        assert auth_service.verify_password(TEST_PASSWORD, student.password_hash)
 
     def test_register_duplicate_email(self, client):
         client.post("/api/register", json={
             "name": "张三",
             "email": "zhangsan@example.com",
-            "grade": "高一"
+            "grade": "高一",
+            "password": TEST_PASSWORD
         })
         response = client.post("/api/register", json={
             "name": "张三",
             "email": "zhangsan@example.com",
-            "grade": "高二"
+            "grade": "高二",
+            "password": TEST_PASSWORD
         })
         assert response.status_code == 400
         assert "已注册" in response.json()["detail"]
+
+    def test_register_missing_password(self, client):
+        response = client.post("/api/register", json={
+            "name": "张三",
+            "email": "missing-password@example.com",
+            "grade": "高一"
+        })
+        assert response.status_code == 422
 
     def test_register_missing_fields(self, client):
         response = client.post("/api/register", json={
@@ -49,7 +79,8 @@ class TestRegisterAPI:
         response = client.post("/api/register", json={
             "name": "张三",
             "email": "invalid-email",
-            "grade": "高一"
+            "grade": "高一",
+            "password": TEST_PASSWORD
         })
         assert response.status_code == 422
 
@@ -57,7 +88,8 @@ class TestRegisterAPI:
         response = client.post("/api/register", json={
             "name": "张三",
             "email": "test@example.com",
-            "grade": "初一"
+            "grade": "初一",
+            "password": TEST_PASSWORD
         })
         assert response.status_code == 422
 
@@ -67,10 +99,116 @@ class TestRegisterAPI:
             response = client.post("/api/register", json={
                 "name": f"学生{i}",
                 "email": f"student{i}@example.com",
-                "grade": grade
+                "grade": grade,
+                "password": TEST_PASSWORD
             })
             assert response.status_code == 201
             assert response.json()["data"]["student"]["grade"] == grade
+
+
+class TestAuthAPI:
+    def _register_student(self, client, email="login@example.com", password=TEST_PASSWORD):
+        return client.post("/api/register", json={
+            "name": "登录学生",
+            "email": email,
+            "grade": "高一",
+            "password": password
+        })
+
+    def test_login_success_returns_token_and_student(self, client):
+        self._register_student(client)
+
+        response = client.post("/api/login", json={
+            "email": "login@example.com",
+            "password": TEST_PASSWORD
+        })
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["data"]["token_type"] == "bearer"
+        assert isinstance(data["data"]["access_token"], str)
+        assert len(data["data"]["access_token"]) > 0
+        assert data["data"]["student"]["email"] == "login@example.com"
+        assert data["data"]["student"]["name"] == "登录学生"
+        assert "password" not in data["data"]["student"]
+        assert "password_hash" not in data["data"]["student"]
+
+    def test_login_unknown_email_returns_404(self, client):
+        response = client.post("/api/login", json={
+            "email": "missing@example.com",
+            "password": TEST_PASSWORD
+        })
+
+        assert response.status_code == 404
+        assert "未注册" in response.json()["detail"]
+
+    def test_login_wrong_password_returns_401(self, client):
+        self._register_student(client)
+
+        response = client.post("/api/login", json={
+            "email": "login@example.com",
+            "password": "WrongPass123!"
+        })
+
+        assert response.status_code == 401
+        assert "密码错误" in response.json()["detail"]
+
+    def test_auth_me_returns_current_student_with_valid_token(self, client):
+        self._register_student(client)
+        login_response = client.post("/api/login", json={
+            "email": "login@example.com",
+            "password": TEST_PASSWORD
+        })
+        token = login_response.json()["data"]["access_token"]
+
+        response = client.get(
+            "/api/auth/me",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["email"] == "login@example.com"
+        assert data["name"] == "登录学生"
+
+    def test_auth_me_without_token_returns_401(self, client):
+        response = client.get("/api/auth/me")
+
+        assert response.status_code == 401
+
+    def test_migrated_legacy_user_can_login(self, client, db_session):
+        student = Student(
+            name="老用户",
+            email="legacy@example.com",
+            grade=ModelGradeEnum.GRADE_10
+        )
+        db_session.add(student)
+        db_session.commit()
+
+        migration_spec = importlib.util.find_spec("app.core.migrations")
+        assert migration_spec is not None
+        migrations = importlib.import_module("app.core.migrations")
+        migrations.migrate_password_hashes(db_session.get_bind(), legacy_password=LEGACY_PASSWORD)
+        db_session.expire_all()
+
+        migrated = db_session.query(Student).filter(Student.email == "legacy@example.com").one()
+        first_hash = migrated.password_hash
+        assert first_hash
+        assert auth_service.verify_password(LEGACY_PASSWORD, first_hash)
+
+        migrations.migrate_password_hashes(db_session.get_bind(), legacy_password="OtherPass123!")
+        db_session.expire_all()
+        migrated_again = db_session.query(Student).filter(Student.email == "legacy@example.com").one()
+        assert migrated_again.password_hash == first_hash
+
+        response = client.post("/api/login", json={
+            "email": "legacy@example.com",
+            "password": LEGACY_PASSWORD
+        })
+
+        assert response.status_code == 200
+        assert response.json()["data"]["student"]["email"] == "legacy@example.com"
 
 
 class TestTaskAPI:
@@ -78,7 +216,8 @@ class TestTaskAPI:
         return client.post("/api/register", json={
             "name": "测试学生",
             "email": email,
-            "grade": "高一"
+            "grade": "高一",
+            "password": TEST_PASSWORD
         })
 
     def test_create_task_success(self, client):
@@ -122,7 +261,8 @@ class TestTaskCompleteAPI:
         client.post("/api/register", json={
             "name": "测试学生",
             "email": "test@example.com",
-            "grade": "高一"
+            "grade": "高一",
+            "password": TEST_PASSWORD
         })
         task_resp = client.post("/api/tasks", json={
             "student_email": "test@example.com",
@@ -170,7 +310,8 @@ class TestStudentAPI:
         client.post("/api/register", json={
             "name": "李四",
             "email": "lisi@example.com",
-            "grade": "高二"
+            "grade": "高二",
+            "password": TEST_PASSWORD
         })
         response = client.get("/api/students/lisi@example.com")
         assert response.status_code == 200
@@ -188,7 +329,8 @@ class TestStudentAPI:
         client.post("/api/register", json={
             "name": "王五",
             "email": "wangwu@example.com",
-            "grade": "高三"
+            "grade": "高三",
+            "password": TEST_PASSWORD
         })
         client.post("/api/tasks", json={
             "student_email": "wangwu@example.com",
@@ -258,7 +400,8 @@ class TestExtractTaskAPI:
         return client.post("/api/register", json={
             "name": "对话学生",
             "email": email,
-            "grade": "高一"
+            "grade": "高一",
+            "password": TEST_PASSWORD
         })
 
     def test_extract_task_success(self, client):
@@ -289,3 +432,65 @@ class TestExtractTaskAPI:
             ]
         })
         assert response.status_code == 404
+
+
+class TestPasswordHashing:
+    def test_password_hash_round_trip(self):
+        assert hasattr(auth_service, "hash_password")
+        assert hasattr(auth_service, "verify_password")
+
+        password_hash = auth_service.hash_password(TEST_PASSWORD)
+
+        assert password_hash
+        assert password_hash != TEST_PASSWORD
+        assert auth_service.verify_password(TEST_PASSWORD, password_hash)
+        assert not auth_service.verify_password("WrongPass123!", password_hash)
+        assert not auth_service.verify_password(TEST_PASSWORD, "invalid-hash")
+
+
+class TestPasswordMigration:
+    def test_migration_adds_password_hash_column_and_is_idempotent(self, tmp_path):
+        db_path = tmp_path / "legacy.db"
+        engine = create_engine(
+            f"sqlite:///{db_path}",
+            connect_args={"check_same_thread": False}
+        )
+        with engine.begin() as connection:
+            connection.execute(text("""
+                CREATE TABLE students (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name VARCHAR(100) NOT NULL,
+                    email VARCHAR(255) NOT NULL UNIQUE,
+                    grade VARCHAR(16) NOT NULL,
+                    registered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    operation_log DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            connection.execute(
+                text("INSERT INTO students (name, email, grade) VALUES (:name, :email, :grade)"),
+                {"name": "老库用户", "email": "legacy-db@example.com", "grade": "GRADE_10"}
+            )
+
+        migration_spec = importlib.util.find_spec("app.core.migrations")
+        assert migration_spec is not None
+        migrations = importlib.import_module("app.core.migrations")
+        migrations.migrate_password_hashes(engine, legacy_password=LEGACY_PASSWORD)
+
+        with engine.begin() as connection:
+            columns = [row[1] for row in connection.execute(text("PRAGMA table_info(students)"))]
+            assert "password_hash" in columns
+            first_hash = connection.execute(
+                text("SELECT password_hash FROM students WHERE email = :email"),
+                {"email": "legacy-db@example.com"}
+            ).scalar_one()
+            assert first_hash
+            assert auth_service.verify_password(LEGACY_PASSWORD, first_hash)
+
+        migrations.migrate_password_hashes(engine, legacy_password="OtherPass123!")
+
+        with engine.begin() as connection:
+            second_hash = connection.execute(
+                text("SELECT password_hash FROM students WHERE email = :email"),
+                {"email": "legacy-db@example.com"}
+            ).scalar_one()
+            assert second_hash == first_hash

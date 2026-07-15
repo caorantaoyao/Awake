@@ -1,18 +1,29 @@
 import { useState, useEffect, useRef } from 'react';
-import { useSearchParams, useNavigate, Link } from 'react-router-dom';
-import Navbar from '../components/Navbar';
+import { useSearchParams, useNavigate, Link, useOutletContext } from 'react-router-dom';
 import Toast from '../components/Toast';
-import { sendChat, extractTask, getStudent } from '../api/client';
+import {
+  sendChat,
+  extractTask,
+  getStudent,
+  getCurrentStudent,
+  getAuthToken,
+  getStoredStudent,
+  clearAuthSession
+} from '../api/client';
 
 const Chat = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const email = searchParams.get('email');
+  const outletContext = useOutletContext() || {};
+  const queryEmail = searchParams.get('email');
+  const storedStudent = getAuthToken() ? getStoredStudent() : null;
 
-  const [student, setStudent] = useState(null);
+  const [email, setEmail] = useState(queryEmail || storedStudent?.email || '');
+  const [student, setStudent] = useState(storedStudent);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sessionLoading, setSessionLoading] = useState(!queryEmail && !!getAuthToken());
   const [canExtract, setCanExtract] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [toast, setToast] = useState(null);
@@ -20,26 +31,67 @@ const Chat = () => {
   const scrollAnchorRef = useRef(null);
   const inputRef = useRef(null);
   const welcomedRef = useRef(false);
+  const setWorkspaceStudent = outletContext.setStudent;
 
-  // 尝试获取学生信息（失败不阻塞）
+  // 优先兼容旧邮件链接；无 email 参数时使用登录 token 恢复会话。
   useEffect(() => {
-    if (!email) return;
     let alive = true;
-    getStudent(email)
-      .then((data) => {
-        if (alive) setStudent(data);
-      })
-      .catch(() => {
-        // 静默失败，name 保持为空，仍可对话
-      });
+
+    const loadStudent = async () => {
+      if (queryEmail) {
+        setEmail(queryEmail);
+        setWorkspaceStudent?.({ email: queryEmail });
+        setSessionLoading(false);
+        try {
+          const data = await getStudent(queryEmail);
+          if (alive) {
+            setStudent(data);
+            setWorkspaceStudent?.(data);
+          }
+        } catch {
+          // 静默失败，name 保持为空，仍可对话
+        }
+        return;
+      }
+
+      if (!getAuthToken()) {
+        clearAuthSession();
+        setStudent(null);
+        setEmail('');
+        setWorkspaceStudent?.(null);
+        setSessionLoading(false);
+        return;
+      }
+
+      setSessionLoading(true);
+      try {
+        const currentStudent = await getCurrentStudent();
+        if (alive) {
+          setStudent(currentStudent);
+          setEmail(currentStudent.email);
+          setWorkspaceStudent?.(currentStudent);
+        }
+      } catch {
+        clearAuthSession();
+        if (alive) {
+          setStudent(null);
+          setEmail('');
+          setWorkspaceStudent?.(null);
+        }
+      } finally {
+        if (alive) setSessionLoading(false);
+      }
+    };
+
+    loadStudent();
     return () => {
       alive = false;
     };
-  }, [email]);
+  }, [queryEmail, setWorkspaceStudent]);
 
   // 初始欢迎：页面挂载后自动请求一次，让小海先打招呼
   useEffect(() => {
-    if (!email || welcomedRef.current) return;
+    if (!email || sessionLoading || welcomedRef.current) return;
     welcomedRef.current = true;
     const studentName = student?.name || '';
 
@@ -64,7 +116,7 @@ const Chat = () => {
     bootstrap();
     // 依赖 email 与 student：等 student 请求返回后再触发一次；welcomedRef 保证只跑一次
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [email, student]);
+  }, [email, sessionLoading, student]);
 
   // 消息变化时自动滚动到底部
   useEffect(() => {
@@ -132,23 +184,35 @@ const Chat = () => {
   };
 
   // 缺少 email：友好引导
+  if (sessionLoading) {
+    return (
+      <>
+        <div className="workspace-state">
+          <div className="workspace-state-card">
+            <div className="workspace-state-mark">ID</div>
+            <h2>正在恢复登录状态</h2>
+            <p>正在读取你的 Awaken 会话，完成后会直接回到小海对话区。</p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   if (!email) {
     return (
       <>
-        <Navbar variant="app" />
-        <div className="page-section">
-          <div className="form-card" style={{ textAlign: 'center' }}>
-            <div className="chat-avatar chat-avatar-lg" style={{ margin: '0 auto 20px' }}>
-              🌊
-            </div>
-            <h2 style={{ fontSize: '24px', marginBottom: '12px', color: '#12213f' }}>
-              先完成注册，小海在这里等你
-            </h2>
-            <p style={{ color: '#6b7280', marginBottom: '28px', lineHeight: 1.7 }}>
-              与小海的对话需要一个专属入口。注册后，我们会通过邮件把你带到属于你的对话空间。
+        <div className="workspace-state">
+          <div className="workspace-state-card">
+            <div className="workspace-state-mark">小海</div>
+            <h2>先登录，小海在这里等你</h2>
+            <p>
+              与小海的对话需要一个专属入口。登录后，我们会把你带回属于你的对话空间。
             </p>
-            <Link to="/register" className="btn-hero-primary" style={{ display: 'inline-flex' }}>
-              立即注册 →
+            <Link to="/login" className="workspace-primary-link">
+              登录已有账号 →
+            </Link>
+            <Link to="/register" className="workspace-secondary-link">
+              还没有账号？先注册
             </Link>
           </div>
         </div>
@@ -158,7 +222,6 @@ const Chat = () => {
 
   return (
     <>
-      <Navbar variant="app" />
       {toast && (
         <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
       )}

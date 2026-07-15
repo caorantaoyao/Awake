@@ -1,0 +1,16 @@
+- [x] DeerFlow 控制代理 deerflow_control.py 实现 status/list_skills/set_skill_enabled/list_models，且连接失败时降级不抛 500
+- [x] 后端新增 /api/deerflow/status、/api/deerflow/skills(GET)、/api/deerflow/skills/{name}(PUT)、/api/deerflow/models(GET) 且返回对应 schema
+- [x] 前端 client.js 的 getDeerflowStatus/getSkills/toggleSkill/getModels 正确对接后端
+- [x] WorkspaceLayout 三栏外壳：左侧可折叠导航 + 顶部上下文条 + 中间 Outlet，桌面/平板/移动端响应式
+- [x] Sidebar 含 对话/任务/能力/设置 四项且当前项高亮，可折叠
+- [x] ContextBar 展示学生名、DeerFlow 在线状态点、当前模型
+- [x] App.jsx 建立 /app/* 嵌套路由，/chat 重定向到 /app/chat（兼容邮件旧链接）
+- [x] 对话视图嵌入工作区，保留多轮/3轮阶段切换/接受任务全部逻辑，无回退
+- [x] 任务管理视图按状态分组展示当前学生任务，进行中任务可跳打卡，含空态引导
+- [x] 能力控制视图展示 skills（可开关）与模型列表，开关调用代理生效
+- [x] 能力/设置视图在 DeerFlow 离线时显示降级提示与重试，不白屏
+- [x] 设置视图只读展示 DeerFlow 状态、模型、阶段阈值、健康检查
+- [x] 工作台整体视觉精致、品牌一致（配色/字体/间距/动效），非默认 AI 风
+- [x] 后端 pytest 全量通过（含新增 deerflow 控制降级用例）
+- [x] 前端 npm run build 通过
+- [x] 端到端联调：四视图可用、对话闭环、能力开关生效、离线降级，在浏览器实际验证并截图

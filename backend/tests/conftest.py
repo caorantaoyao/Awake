@@ -11,11 +11,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # 必须在导入 main（触发 settings 实例化）之前设置；环境变量优先级高于 .env。
 os.environ["SMTP_ENABLED"] = "false"
 os.environ["DEERFLOW_ENABLED"] = "false"
+TEST_DATABASE_URL = f"sqlite:///{os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'test_awaken.db')}"
+os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 
 from app.core.database import Base, get_db
 from main import app
-
-TEST_DATABASE_URL = "sqlite:///./test_awaken.db"
 
 engine = create_engine(
     TEST_DATABASE_URL,

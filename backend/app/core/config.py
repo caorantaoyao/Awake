@@ -8,6 +8,10 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     DEBUG: bool = True
     DATABASE_URL: str = "sqlite:///./awaken.db"
+    AUTH_SECRET_KEY: str = "awaken-dev-secret-change-me"
+    AUTH_ALGORITHM: str = "HS256"
+    AUTH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
+    AUTH_LEGACY_USER_DEFAULT_PASSWORD: str = "AwakenLegacy123!"
 
     SMTP_HOST: str = "smtp.qq.com"
     SMTP_PORT: int = 465
@@ -27,6 +31,8 @@ class Settings(BaseSettings):
     DEERFLOW_ASSISTANT_ID: str = "lead_agent"
     # 仅在 DeerFlow 开启鉴权时需要（本地 DEER_FLOW_AUTH_DISABLED=1 时留空即可）
     DEERFLOW_API_KEY: str = ""
+    # DeerFlow 控制接口（status/skills/models）超时，避免被普通短请求超时截断
+    DEERFLOW_CONTROL_TIMEOUT_SECONDS: float = 60.0
     # 「小海」人设（两个阶段恒定生效）
     XIAOHAI_PERSONA_PROMPT: str = (
         "你是「小海」，一位温和、专业的生涯引导师，帮助高中学生探索兴趣与职业方向。"

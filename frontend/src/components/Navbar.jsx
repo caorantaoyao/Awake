@@ -39,7 +39,7 @@ const Navbar = ({ variant = 'marketing' }) => {
       {!isApp && (
         <div className="nav-right">
           <Link to="/register" className="btn-primary">立即注册</Link>
-          <a href="#" className="link-login">登录</a>
+          <Link to="/login" className="link-login">登录</Link>
         </div>
       )}
     </header>

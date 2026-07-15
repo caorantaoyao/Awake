@@ -9,7 +9,9 @@ const Register = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    grade: '高一'
+    grade: '高一',
+    password: '',
+    confirmPassword: ''
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -28,6 +30,16 @@ const Register = () => {
     if (!formData.grade) {
       newErrors.grade = '请选择年级';
     }
+    if (!formData.password) {
+      newErrors.password = '请输入密码';
+    } else if (formData.password.length < 8) {
+      newErrors.password = '密码至少需要 8 位';
+    }
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = '请再次输入密码';
+    } else if (formData.confirmPassword !== formData.password) {
+      newErrors.confirmPassword = '两次输入的密码不一致';
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -38,7 +50,13 @@ const Register = () => {
 
     setLoading(true);
     try {
-      const result = await registerStudent(formData);
+      const registerPayload = {
+        name: formData.name,
+        email: formData.email,
+        grade: formData.grade,
+        password: formData.password
+      };
+      const result = await registerStudent(registerPayload);
       if (result.success) {
         navigate('/success', {
           state: {
@@ -125,6 +143,44 @@ const Register = () => {
               {errors.grade && <div className="form-error">{errors.grade}</div>}
             </div>
 
+            <div className="form-group">
+              <label className="form-label" htmlFor="password">设置密码</label>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                className="form-input"
+                placeholder="至少 8 位密码"
+                value={formData.password}
+                onChange={handleChange}
+                autoComplete="new-password"
+                aria-invalid={Boolean(errors.password)}
+                aria-describedby={errors.password ? 'password-error' : undefined}
+              />
+              {errors.password && (
+                <div className="form-error" id="password-error">{errors.password}</div>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="confirmPassword">确认密码</label>
+              <input
+                type="password"
+                id="confirmPassword"
+                name="confirmPassword"
+                className="form-input"
+                placeholder="请再次输入密码"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                autoComplete="new-password"
+                aria-invalid={Boolean(errors.confirmPassword)}
+                aria-describedby={errors.confirmPassword ? 'confirm-password-error' : undefined}
+              />
+              {errors.confirmPassword && (
+                <div className="form-error" id="confirm-password-error">{errors.confirmPassword}</div>
+              )}
+            </div>
+
             <button
               type="submit"
               className="form-submit"
@@ -136,6 +192,12 @@ const Register = () => {
 
           <div style={{ marginTop: '24px', textAlign: 'center', fontSize: '14px', color: '#6b7280' }}>
             注册即表示你同意我们的服务条款和隐私政策
+          </div>
+          <div style={{ marginTop: '12px', textAlign: 'center', fontSize: '14px', color: '#6b7280' }}>
+            已有账号？{' '}
+            <Link to="/login" style={{ color: '#1f6fe5', fontWeight: 600 }}>
+              直接登录
+            </Link>
           </div>
         </div>
 

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
@@ -9,6 +10,7 @@ from app.core.database import get_db
 from app.models.models import Student, Task, TaskStatusEnum, GradeEnum
 from app.schemas.schemas import (
     StudentRegisterRequest,
+    StudentLoginRequest,
     StudentResponse,
     TaskCreateRequest,
     TaskCompleteRequest,
@@ -17,15 +19,52 @@ from app.schemas.schemas import (
     ApiResponse,
     ChatRequest,
     ChatResponse,
-    ExtractTaskRequest
+    ExtractTaskRequest,
+    DeerFlowStatusResponse,
+    SkillListResponse,
+    SkillItem,
+    SkillToggleRequest,
+    SkillToggleResponse,
+    ModelListResponse,
 )
+from app.services.auth_service import create_access_token, decode_access_token, hash_password, verify_password
 from app.services.email_service import email_service
 from app.services.feishu_service import feishu_service
 from app.services.deerflow_service import deerflow_service
+from app.services.deerflow_control import deerflow_control_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+bearer_scheme = HTTPBearer(auto_error=False)
+
+
+def get_current_student(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    db: Session = Depends(get_db)
+):
+    if not credentials or credentials.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="未登录或登录已失效"
+        )
+
+    payload = decode_access_token(credentials.credentials)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="未登录或登录已失效"
+        )
+
+    student_id = payload.get("student_id")
+    student = db.query(Student).filter(Student.id == student_id).first() if student_id else None
+    if not student:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="未登录或登录已失效"
+        )
+
+    return student
 
 
 @router.post("/api/register", response_model=ApiResponse, status_code=status.HTTP_201_CREATED)
@@ -44,7 +83,8 @@ async def register_student(
         student = Student(
             name=request.name,
             email=request.email,
-            grade=GradeEnum(request.grade.value)
+            grade=GradeEnum(request.grade.value),
+            password_hash=hash_password(request.password)
         )
         db.add(student)
         db.commit()
@@ -79,6 +119,42 @@ async def register_student(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="注册失败，请稍后重试"
         )
+
+
+@router.post("/api/login", response_model=ApiResponse)
+def login_student(
+    request: StudentLoginRequest,
+    db: Session = Depends(get_db)
+):
+    student = db.query(Student).filter(Student.email == request.email).first()
+    if not student:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="该邮箱尚未注册，请先完成注册"
+        )
+    if not student.password_hash or not verify_password(request.password, student.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="密码错误，请重新输入"
+        )
+
+    access_token = create_access_token(student.id, student.email)
+    logger.info(f"用户登录成功: {student.name} ({student.email})")
+
+    return ApiResponse(
+        success=True,
+        message="登录成功",
+        data={
+            "access_token": access_token,
+            "token_type": "bearer",
+            "student": StudentResponse.model_validate(student).model_dump()
+        }
+    )
+
+
+@router.get("/api/auth/me", response_model=StudentResponse)
+def get_me(current_student: Student = Depends(get_current_student)):
+    return current_student
 
 
 @router.post("/api/tasks", response_model=ApiResponse, status_code=status.HTTP_201_CREATED)
@@ -254,6 +330,59 @@ async def extract_task(request: ExtractTaskRequest, db: Session = Depends(get_db
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="任务生成失败，请稍后重试"
+        )
+
+
+@router.get("/api/deerflow/status", response_model=DeerFlowStatusResponse)
+async def get_deerflow_status():
+    try:
+        return await deerflow_control_service.get_status()
+    except Exception as e:
+        logger.error(f"DeerFlow status 代理异常: {e}")
+        return DeerFlowStatusResponse(
+            online=False,
+            assistant_id=deerflow_control_service.assistant_id,
+            model=None,
+            error="DeerFlow 控制代理异常"
+        )
+
+
+@router.get("/api/deerflow/skills", response_model=SkillListResponse)
+async def get_deerflow_skills():
+    try:
+        return await deerflow_control_service.list_skills()
+    except Exception as e:
+        logger.error(f"DeerFlow skills 代理异常: {e}")
+        return SkillListResponse(
+            online=False,
+            skills=[],
+            error="DeerFlow 控制代理异常"
+        )
+
+
+@router.put("/api/deerflow/skills/{name}", response_model=SkillToggleResponse)
+async def set_deerflow_skill_enabled(name: str, request: SkillToggleRequest):
+    try:
+        return await deerflow_control_service.set_skill_enabled(name, request.enabled)
+    except Exception as e:
+        logger.error(f"DeerFlow skill 开关代理异常: {e}")
+        return SkillToggleResponse(
+            online=False,
+            skill=SkillItem(name=name, enabled=None),
+            error="DeerFlow 控制代理异常"
+        )
+
+
+@router.get("/api/deerflow/models", response_model=ModelListResponse)
+async def get_deerflow_models():
+    try:
+        return await deerflow_control_service.list_models()
+    except Exception as e:
+        logger.error(f"DeerFlow models 代理异常: {e}")
+        return ModelListResponse(
+            online=False,
+            models=[],
+            error="DeerFlow 控制代理异常"
         )
 
 

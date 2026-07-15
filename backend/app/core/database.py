@@ -2,6 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from .config import settings
+from .migrations import migrate_password_hashes
 
 engine = create_engine(
     settings.DATABASE_URL,
@@ -23,3 +24,4 @@ def get_db():
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    migrate_password_hashes(engine, settings.AUTH_LEGACY_USER_DEFAULT_PASSWORD)

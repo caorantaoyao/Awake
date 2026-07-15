@@ -8,8 +8,66 @@ const api = axios.create({
   }
 });
 
+const DEFAULT_DEERFLOW_CONTROL_TIMEOUT_MS = 60000;
+
+const parsePositiveNumber = (value, fallback) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const deerflowControlRequestConfig = {
+  timeout: parsePositiveNumber(
+    import.meta.env.VITE_DEERFLOW_CONTROL_TIMEOUT_MS,
+    DEFAULT_DEERFLOW_CONTROL_TIMEOUT_MS
+  )
+};
+
+const AUTH_TOKEN_KEY = 'awaken_access_token';
+const AUTH_STUDENT_KEY = 'awaken_student';
+
+export const getAuthToken = () => localStorage.getItem(AUTH_TOKEN_KEY);
+
+export const getStoredStudent = () => {
+  const raw = localStorage.getItem(AUTH_STUDENT_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    localStorage.removeItem(AUTH_STUDENT_KEY);
+    return null;
+  }
+};
+
+export const saveAuthSession = ({ accessToken, student }) => {
+  localStorage.setItem(AUTH_TOKEN_KEY, accessToken);
+  localStorage.setItem(AUTH_STUDENT_KEY, JSON.stringify(student));
+};
+
+export const clearAuthSession = () => {
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(AUTH_STUDENT_KEY);
+};
+
+api.interceptors.request.use((config) => {
+  const token = getAuthToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 export const registerStudent = async (data) => {
   const response = await api.post('/register', data);
+  return response.data;
+};
+
+export const loginStudent = async (data) => {
+  const response = await api.post('/login', data);
+  return response.data;
+};
+
+export const getCurrentStudent = async () => {
+  const response = await api.get('/auth/me');
   return response.data;
 };
 
@@ -30,6 +88,30 @@ export const getStudent = async (email) => {
 
 export const getTask = async (taskId) => {
   const response = await api.get(`/tasks/${taskId}`);
+  return response.data;
+};
+
+export const getDeerflowStatus = async () => {
+  const response = await api.get('/deerflow/status', deerflowControlRequestConfig);
+  return response.data;
+};
+
+export const getSkills = async () => {
+  const response = await api.get('/deerflow/skills', deerflowControlRequestConfig);
+  return response.data;
+};
+
+export const toggleSkill = async (name, enabled) => {
+  const response = await api.put(
+    `/deerflow/skills/${encodeURIComponent(name)}`,
+    { enabled },
+    deerflowControlRequestConfig
+  );
+  return response.data;
+};
+
+export const getModels = async () => {
+  const response = await api.get('/deerflow/models', deerflowControlRequestConfig);
   return response.data;
 };
 

@@ -1,0 +1,43 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      APP_ENV: docker
+      DEBUG: "false"
+      DATABASE_URL: sqlite:///./data/awaken.db
+      AUTH_SECRET_KEY: ${AUTH_SECRET_KEY:-awaken-dev-secret-change-me}
+      AUTH_LEGACY_USER_DEFAULT_PASSWORD: ${AUTH_LEGACY_USER_DEFAULT_PASSWORD:-AwakenLegacy123!}
+      SMTP_ENABLED: ${SMTP_ENABLED:-false}
+      SMTP_HOST: ${SMTP_HOST:-smtp.qq.com}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      FEISHU_ENABLED: ${FEISHU_ENABLED:-false}
+      FEISHU_WEBHOOK_REGISTER: ${FEISHU_WEBHOOK_REGISTER:-}
+      FEISHU_WEBHOOK_TASK_COMPLETE: ${FEISHU_WEBHOOK_TASK_COMPLETE:-}
+      DEERFLOW_ENABLED: ${DEERFLOW_ENABLED:-false}
+      DEERFLOW_BASE_URL: ${DEERFLOW_BASE_URL:-http://host.docker.internal:8001}
+      DEERFLOW_ASSISTANT_ID: ${DEERFLOW_ASSISTANT_ID:-lead_agent}
+      DEERFLOW_API_KEY: ${DEERFLOW_API_KEY:-}
+      DEERFLOW_CONTROL_TIMEOUT_SECONDS: ${DEERFLOW_CONTROL_TIMEOUT_SECONDS:-60}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      BACKEND_CORS_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000"]'
+    ports:
+      - "8000:8000"
+    volumes:
+      - awaken_backend_data:/app/data
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  awaken_backend_data:
