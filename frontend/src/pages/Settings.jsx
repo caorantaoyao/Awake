@@ -1,33 +1,34 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { getDeerflowStatus, healthCheck } from '../api/client';
-
-const fallbackStatus = {
-  online: false,
-  label: '离线',
-  assistant_id: 'lead_agent',
-  model: null,
-  error: 'DeerFlow 状态接口请求失败'
-};
+import { healthCheck } from '../api/client';
 
 const Settings = () => {
   const outletContext = useOutletContext() || {};
-  const workspaceStatus = outletContext.deerflowStatus;
-  const refreshWorkspaceDeerflowStatus = outletContext.refreshDeerflowStatus;
+  const student = outletContext.student;
+  const status = outletContext.deerflowStatus;
 
-  const [status, setStatus] = useState(() => workspaceStatus || null);
   const [health, setHealth] = useState(null);
   const [healthError, setHealthError] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const statusLabel = status?.online === true ? '在线' : status?.online === false ? '离线' : '检测中';
-  const statusTone = status?.online === true ? 'is-good' : status?.online === false ? 'is-bad' : '';
+  const statusLabel = {
+    online: '可以对话',
+    degraded: '基础模式',
+    unreachable: '暂时无法连接',
+    private: '按需连接'
+  }[status?.availability] || '检测中';
+  const statusTone =
+    status?.availability === 'online'
+      ? 'is-good'
+      : ['degraded', 'unreachable'].includes(status?.availability)
+        ? 'is-bad'
+        : '';
 
   const healthLabel = useMemo(() => {
-    if (health?.status) return health.status;
-    if (healthError) return 'unreachable';
-    return 'unknown';
+    if (health?.status) return '连接正常';
+    if (healthError) return '暂时未连接';
+    return '检测中';
   }, [health, healthError]);
 
   const loadSettings = async ({ silent = false } = {}) => {
@@ -38,16 +39,9 @@ const Settings = () => {
     }
     setHealthError('');
 
-    const [statusResult, healthResult] = await Promise.allSettled([
-      refreshWorkspaceDeerflowStatus ? refreshWorkspaceDeerflowStatus() : getDeerflowStatus(),
-      healthCheck()
-    ]);
-
-    setStatus(statusResult.status === 'fulfilled' ? statusResult.value : fallbackStatus);
-
-    if (healthResult.status === 'fulfilled') {
-      setHealth(healthResult.value);
-    } else {
+    try {
+      setHealth(await healthCheck());
+    } catch {
       setHealth(null);
       setHealthError('健康检查接口请求失败');
     }
@@ -60,19 +54,13 @@ const Settings = () => {
     loadSettings();
   }, []);
 
-  useEffect(() => {
-    if (workspaceStatus) {
-      setStatus(workspaceStatus);
-    }
-  }, [workspaceStatus]);
-
   if (loading) {
     return (
       <section className="workspace-view">
         <div className="workspace-state-card is-inline">
-          <div className="workspace-state-mark">SYS</div>
-          <h2>正在读取运行信息</h2>
-          <p>正在检查 Awaken API 与 DeerFlow gateway 的当前状态。</p>
+          <div className="workspace-state-mark">HI</div>
+          <h2>正在准备你的成长空间</h2>
+          <p>正在确认账号信息和小海的可用状态。</p>
         </div>
       </section>
     );
@@ -82,9 +70,9 @@ const Settings = () => {
     <section className="workspace-view settings-view">
       <div className="workspace-view-header">
         <div>
-          <span className="workspace-kicker">SYSTEM SNAPSHOT</span>
-          <h2>设置 / 关于</h2>
-          <p>只读展示当前工作台运行信息，用于联调时确认对话引擎与健康检查状态。</p>
+          <span className="workspace-kicker">MY SPACE</span>
+          <h2>设置</h2>
+          <p>查看你的账号、小海的可用状态和当前探索节奏。</p>
         </div>
         <button
           type="button"
@@ -96,44 +84,58 @@ const Settings = () => {
         </button>
       </div>
 
-      {status?.online === false && (
+      {status?.availability === 'degraded' && (
         <div className="workspace-alert is-warning">
-          <span>DeerFlow 当前不可达</span>
-          <p>{status.error || '后端已返回离线降级状态，对话链路会继续使用 mock 降级。'}</p>
+          <span>小海正在使用基础模式</span>
+          <p>增强能力暂时不可用，但你仍然可以继续对话和整理下一步行动。</p>
+        </div>
+      )}
+      {status?.availability === 'unreachable' && (
+        <div className="workspace-alert is-error">
+          <span>暂时无法连接小海</span>
+          <p>当前无法确认对话服务是否可用，请稍后刷新状态。</p>
         </div>
       )}
 
       <div className="settings-grid">
         <article className="settings-card">
-          <span className="settings-label">DeerFlow 状态</span>
+          <span className="settings-label">当前账号</span>
+          <strong>{student?.name || '访客同学'}</strong>
+          <p>{student?.email || '登录后可保存对话与行动记录'}</p>
+        </article>
+
+        <article className="settings-card">
+          <span className="settings-label">小海状态</span>
           <strong className={statusTone}>{statusLabel}</strong>
-          <p>{status?.error || 'Gateway 状态正常返回。'}</p>
+          <p>
+            {status?.availability === 'degraded'
+              ? '当前使用基础陪伴能力'
+              : status?.availability === 'unreachable'
+                ? '请稍后刷新状态'
+                : status?.availability === 'private'
+                  ? '开始对话时自动连接小海'
+                  : '可以继续探索你的方向'}
+          </p>
         </article>
 
         <article className="settings-card">
-          <span className="settings-label">assistant_id</span>
-          <strong>{status?.assistant_id || '未返回'}</strong>
-          <p>当前 DeerFlow assistant/agent 标识。</p>
+          <span className="settings-label">对话方式</span>
+          <strong>先探索，再行动</strong>
+          <p>小海会先理解你的想法，不急着替你下结论。</p>
         </article>
 
         <article className="settings-card">
-          <span className="settings-label">当前模型</span>
-          <strong>{status?.model || '未返回'}</strong>
-          <p>若 DeerFlow 离线，模型字段会保持为空。</p>
-        </article>
-
-        <article className="settings-card">
-          <span className="settings-label">阶段阈值</span>
+          <span className="settings-label">微行动节奏</span>
           <strong>探索 3 轮后解锁</strong>
-          <p>与后端 `can_extract_task` 当前阈值保持一致。</p>
+          <p>聊得足够具体后，再把想法变成今天能完成的一步。</p>
         </article>
       </div>
 
       <section className="workspace-panel settings-health-panel">
         <div className="workspace-panel-head">
           <div>
-            <h3>Awaken API 健康检查</h3>
-            <p>来自 `GET /api/health`，用于确认 FastAPI 服务是否可达。</p>
+            <h3>服务连接</h3>
+            <p>确认你的成长记录能否正常读取和保存。</p>
           </div>
           <span className={`health-badge ${healthError ? 'is-bad' : 'is-good'}`}>{healthLabel}</span>
         </div>
@@ -144,12 +146,12 @@ const Settings = () => {
             <dd>{healthLabel}</dd>
           </div>
           <div>
-            <dt>时间戳</dt>
-            <dd>{health?.timestamp || '未返回'}</dd>
+            <dt>最近检查</dt>
+            <dd>{health?.timestamp || '刚刚'}</dd>
           </div>
           <div>
-            <dt>错误</dt>
-            <dd>{healthError || '无'}</dd>
+            <dt>说明</dt>
+            <dd>{healthError ? '暂时无法同步，请稍后刷新' : '对话与行动记录服务可用'}</dd>
           </div>
         </dl>
       </section>

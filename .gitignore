@@ -21,3 +21,7 @@ backend/.pytest_cache/
 # 日志
 logs/
 *.log
+
+# 测试与自动化产物
+output/
+.playwright-cli/

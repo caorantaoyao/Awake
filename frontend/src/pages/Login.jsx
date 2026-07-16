@@ -39,7 +39,7 @@ const Login = () => {
           accessToken: result.data.access_token,
           student: result.data.student
         });
-        navigate(`/chat?email=${encodeURIComponent(result.data.student.email)}`);
+        navigate(`/app/chat?email=${encodeURIComponent(result.data.student.email)}`);
       }
     } catch (err) {
       const errorMessage = err.response?.data?.detail || '登录失败，请稍后重试';
@@ -51,7 +51,7 @@ const Login = () => {
 
   return (
     <>
-      <Navbar />
+      <Navbar variant="app" />
       {toast && (
         <Toast
           message={toast.message}
@@ -59,14 +59,28 @@ const Login = () => {
           onClose={() => setToast(null)}
         />
       )}
-      <div className="page-section">
-        <h1 className="page-title">欢迎回来</h1>
-        <p className="page-subtitle">
-          输入注册邮箱和密码登录 Awaken，继续和 AI 学长「小海」探索你的成长方向。
-        </p>
+      <main className="auth-shell auth-shell-login">
+        <section className="auth-intro" aria-labelledby="login-title">
+          <Link to="/" className="auth-back-link">返回首页</Link>
+          <p className="auth-kicker">继续上一次的探索</p>
+          <h1 id="login-title">欢迎回来</h1>
+          <p>
+            登录后，小海会带你回到专属对话空间。已经聊过的方向和生成的微行动，都在原来的位置。
+          </p>
+          <ul className="auth-benefits">
+            <li>继续和小海梳理兴趣线索</li>
+            <li>查看进行中的微行动</li>
+            <li>记录每一次真实体验</li>
+          </ul>
+        </section>
 
-        <div className="form-card">
-          <form onSubmit={handleSubmit}>
+        <section className="auth-panel" aria-label="登录 Awaken">
+          <div className="auth-panel-heading">
+            <p>登录 Awaken</p>
+            <h2>回到你的探索空间</h2>
+          </div>
+
+          <form className="auth-form" onSubmit={handleSubmit} noValidate>
             <div className="form-group">
               <label className="form-label" htmlFor="email">邮箱地址</label>
               <input
@@ -74,7 +88,7 @@ const Login = () => {
                 id="email"
                 name="email"
                 className="form-input"
-                placeholder="example@qq.com"
+                placeholder="输入注册邮箱"
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
@@ -114,24 +128,15 @@ const Login = () => {
               className="form-submit"
               disabled={loading}
             >
-              {loading ? '登录中...' : '登录并继续对话'}
+              {loading ? '正在回到探索空间...' : '登录并继续对话'}
             </button>
           </form>
 
-          <div style={{ marginTop: '24px', textAlign: 'center', fontSize: '14px', color: '#6b7280' }}>
-            还没有账号？{' '}
-            <Link to="/register" style={{ color: '#1f6fe5', fontWeight: 600 }}>
-              先完成注册
-            </Link>
-          </div>
-        </div>
-
-        <div style={{ marginTop: '32px', textAlign: 'center' }}>
-          <Link to="/" style={{ color: '#1f6fe5', fontSize: '15px', fontWeight: 500 }}>
-            ← 返回首页
-          </Link>
-        </div>
-      </div>
+          <p className="auth-switch">
+            还没有账号？<Link to="/register">创建探索空间</Link>
+          </p>
+        </section>
+      </main>
     </>
   );
 };

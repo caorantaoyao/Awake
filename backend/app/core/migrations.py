@@ -4,12 +4,19 @@ from sqlalchemy.engine import Engine
 from app.services.auth_service import hash_password
 
 
+def _table_exists(connection, table_name: str) -> bool:
+    return connection.execute(
+        text(
+            "SELECT name FROM sqlite_master "
+            "WHERE type = 'table' AND name = :table_name"
+        ),
+        {"table_name": table_name},
+    ).scalar() is not None
+
+
 def migrate_password_hashes(engine: Engine, legacy_password: str) -> None:
     with engine.begin() as connection:
-        students_table = connection.execute(text(
-            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'students'"
-        )).scalar()
-        if not students_table:
+        if not _table_exists(connection, "students"):
             return
 
         columns = [row[1] for row in connection.execute(text("PRAGMA table_info(students)"))]
@@ -25,3 +32,110 @@ def migrate_password_hashes(engine: Engine, legacy_password: str) -> None:
                 text("UPDATE students SET password_hash = :password_hash WHERE id = :id"),
                 {"password_hash": hash_password(legacy_password), "id": row["id"]}
             )
+
+
+def migrate_growth_schema(engine: Engine) -> None:
+    if engine.dialect.name != "sqlite":
+        return
+
+    with engine.begin() as connection:
+        if not _table_exists(connection, "students"):
+            return
+
+        if _table_exists(connection, "tasks"):
+            task_columns = {
+                row[1] for row in connection.execute(text("PRAGMA table_info(tasks)"))
+            }
+            additions = {
+                "estimated_minutes": (
+                    "ALTER TABLE tasks ADD COLUMN "
+                    "estimated_minutes INTEGER NOT NULL DEFAULT 15"
+                ),
+                "growth_points": (
+                    "ALTER TABLE tasks ADD COLUMN "
+                    "growth_points INTEGER NOT NULL DEFAULT 10"
+                ),
+                "topic_tags": (
+                    "ALTER TABLE tasks ADD COLUMN "
+                    "topic_tags TEXT NOT NULL DEFAULT '[]'"
+                ),
+            }
+            for column_name, statement in additions.items():
+                if column_name not in task_columns:
+                    connection.execute(text(statement))
+
+        connection.execute(text("""
+            CREATE TABLE IF NOT EXISTS student_profiles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_id INTEGER NOT NULL UNIQUE,
+                interest_tags TEXT NOT NULL DEFAULT '[]',
+                ability_tags TEXT NOT NULL DEFAULT '[]',
+                exploration_stage VARCHAR(50) NOT NULL DEFAULT '探索中',
+                summary TEXT NOT NULL DEFAULT '',
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(student_id) REFERENCES students(id)
+            )
+        """))
+        connection.execute(text("""
+            CREATE TABLE IF NOT EXISTS conversation_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_id INTEGER NOT NULL,
+                role VARCHAR(20) NOT NULL
+                    CHECK (role IN ('user', 'assistant')),
+                content TEXT NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(student_id) REFERENCES students(id)
+            )
+        """))
+        connection.execute(text("""
+            CREATE TABLE IF NOT EXISTS growth_resources (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title VARCHAR(200) NOT NULL,
+                resource_type VARCHAR(20) NOT NULL
+                    CHECK (resource_type IN ('课程', '活动', '竞赛', '实践')),
+                description TEXT NOT NULL,
+                url TEXT,
+                topic_tags TEXT NOT NULL DEFAULT '[]',
+                ability_tags TEXT NOT NULL DEFAULT '[]',
+                suitable_grades TEXT NOT NULL DEFAULT '[]',
+                exploration_stages TEXT NOT NULL DEFAULT '[]',
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+        connection.execute(text("""
+            CREATE TABLE IF NOT EXISTS growth_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_id INTEGER NOT NULL,
+                task_id INTEGER,
+                event_type VARCHAR(50) NOT NULL,
+                title VARCHAR(200) NOT NULL,
+                description TEXT,
+                growth_points INTEGER NOT NULL DEFAULT 0,
+                topic_tags TEXT NOT NULL DEFAULT '[]',
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(student_id) REFERENCES students(id),
+                FOREIGN KEY(task_id) REFERENCES tasks(id)
+            )
+        """))
+        connection.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_student_profiles_student_id "
+            "ON student_profiles (student_id)"
+        ))
+        connection.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_conversation_messages_student_id "
+            "ON conversation_messages (student_id)"
+        ))
+        connection.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_growth_resources_resource_type "
+            "ON growth_resources (resource_type)"
+        ))
+        connection.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_growth_events_student_id "
+            "ON growth_events (student_id)"
+        ))
+        connection.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_growth_events_task_id "
+            "ON growth_events (task_id)"
+        ))

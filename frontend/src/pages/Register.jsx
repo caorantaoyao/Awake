@@ -51,8 +51,8 @@ const Register = () => {
     setLoading(true);
     try {
       const registerPayload = {
-        name: formData.name,
-        email: formData.email,
+        name: formData.name.trim(),
+        email: formData.email.trim(),
         grade: formData.grade,
         password: formData.password
       };
@@ -83,7 +83,7 @@ const Register = () => {
 
   return (
     <>
-      <Navbar />
+      <Navbar variant="app" />
       {toast && (
         <Toast
           message={toast.message}
@@ -91,26 +91,61 @@ const Register = () => {
           onClose={() => setToast(null)}
         />
       )}
-      <div className="page-section">
-        <h1 className="page-title">开始你的成长之旅</h1>
-        <p className="page-subtitle">
-          填写信息注册 Awaken，AI 学长「小海」将通过苏格拉底式对话，帮你找到真正适合的方向。
-        </p>
+      <main className="auth-shell">
+        <section className="auth-intro" aria-labelledby="register-title">
+          <Link to="/" className="auth-back-link">返回首页</Link>
+          <p className="auth-kicker">从一次真诚对话开始</p>
+          <h1 id="register-title">创建你的探索空间</h1>
+          <p>
+            小海不会替你决定未来，而会从真实经历里陪你找到兴趣线索，并把想法变成今天就能完成的一小步。
+          </p>
+          <ul className="auth-benefits">
+            <li>不贴标签，先理解你的真实感受</li>
+            <li>每次只推进一个具体的小行动</li>
+            <li>随时回来，继续上一次的探索</li>
+          </ul>
+        </section>
 
-        <div className="form-card">
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label className="form-label" htmlFor="name">姓名</label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                className="form-input"
-                placeholder="请输入你的姓名"
-                value={formData.name}
-                onChange={handleChange}
-              />
-              {errors.name && <div className="form-error">{errors.name}</div>}
+        <section className="auth-panel" aria-label="注册 Awaken">
+          <div className="auth-panel-heading">
+            <p>注册 Awaken</p>
+            <h2>开始和小海对话</h2>
+          </div>
+
+          <form className="auth-form" onSubmit={handleSubmit} noValidate>
+            <div className="auth-form-row">
+              <div className="form-group">
+                <label className="form-label" htmlFor="name">姓名</label>
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  className="form-input"
+                  placeholder="怎么称呼你"
+                  value={formData.name}
+                  onChange={handleChange}
+                  autoComplete="name"
+                  aria-invalid={Boolean(errors.name)}
+                  aria-describedby={errors.name ? 'name-error' : undefined}
+                />
+                {errors.name && <div className="form-error" id="name-error">{errors.name}</div>}
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="grade">当前年级</label>
+                <select
+                  id="grade"
+                  name="grade"
+                  className="form-select"
+                  value={formData.grade}
+                  onChange={handleChange}
+                >
+                  <option value="高一">高一</option>
+                  <option value="高二">高二</option>
+                  <option value="高三">高三</option>
+                </select>
+                {errors.grade && <div className="form-error">{errors.grade}</div>}
+              </div>
             </div>
 
             <div className="form-group">
@@ -120,65 +155,54 @@ const Register = () => {
                 id="email"
                 name="email"
                 className="form-input"
-                placeholder="example@qq.com"
+                placeholder="用于登录和接收重要提醒"
                 value={formData.email}
                 onChange={handleChange}
+                autoComplete="email"
+                aria-invalid={Boolean(errors.email)}
+                aria-describedby={errors.email ? 'register-email-error' : undefined}
               />
-              {errors.email && <div className="form-error">{errors.email}</div>}
+              {errors.email && <div className="form-error" id="register-email-error">{errors.email}</div>}
             </div>
 
-            <div className="form-group">
-              <label className="form-label" htmlFor="grade">当前年级</label>
-              <select
-                id="grade"
-                name="grade"
-                className="form-select"
-                value={formData.grade}
-                onChange={handleChange}
-              >
-                <option value="高一">高一</option>
-                <option value="高二">高二</option>
-                <option value="高三">高三</option>
-              </select>
-              {errors.grade && <div className="form-error">{errors.grade}</div>}
-            </div>
+            <div className="auth-form-row">
+              <div className="form-group">
+                <label className="form-label" htmlFor="password">设置密码</label>
+                <input
+                  type="password"
+                  id="password"
+                  name="password"
+                  className="form-input"
+                  placeholder="至少 8 位"
+                  value={formData.password}
+                  onChange={handleChange}
+                  autoComplete="new-password"
+                  aria-invalid={Boolean(errors.password)}
+                  aria-describedby={errors.password ? 'password-error' : undefined}
+                />
+                {errors.password && (
+                  <div className="form-error" id="password-error">{errors.password}</div>
+                )}
+              </div>
 
-            <div className="form-group">
-              <label className="form-label" htmlFor="password">设置密码</label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                className="form-input"
-                placeholder="至少 8 位密码"
-                value={formData.password}
-                onChange={handleChange}
-                autoComplete="new-password"
-                aria-invalid={Boolean(errors.password)}
-                aria-describedby={errors.password ? 'password-error' : undefined}
-              />
-              {errors.password && (
-                <div className="form-error" id="password-error">{errors.password}</div>
-              )}
-            </div>
-
-            <div className="form-group">
-              <label className="form-label" htmlFor="confirmPassword">确认密码</label>
-              <input
-                type="password"
-                id="confirmPassword"
-                name="confirmPassword"
-                className="form-input"
-                placeholder="请再次输入密码"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                autoComplete="new-password"
-                aria-invalid={Boolean(errors.confirmPassword)}
-                aria-describedby={errors.confirmPassword ? 'confirm-password-error' : undefined}
-              />
-              {errors.confirmPassword && (
-                <div className="form-error" id="confirm-password-error">{errors.confirmPassword}</div>
-              )}
+              <div className="form-group">
+                <label className="form-label" htmlFor="confirmPassword">确认密码</label>
+                <input
+                  type="password"
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  className="form-input"
+                  placeholder="再次输入"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  autoComplete="new-password"
+                  aria-invalid={Boolean(errors.confirmPassword)}
+                  aria-describedby={errors.confirmPassword ? 'confirm-password-error' : undefined}
+                />
+                {errors.confirmPassword && (
+                  <div className="form-error" id="confirm-password-error">{errors.confirmPassword}</div>
+                )}
+              </div>
             </div>
 
             <button
@@ -186,27 +210,16 @@ const Register = () => {
               className="form-submit"
               disabled={loading}
             >
-              {loading ? '注册中...' : '免费注册开始体验'}
+              {loading ? '正在创建探索空间...' : '创建账号并进入对话'}
             </button>
           </form>
 
-          <div style={{ marginTop: '24px', textAlign: 'center', fontSize: '14px', color: '#6b7280' }}>
-            注册即表示你同意我们的服务条款和隐私政策
-          </div>
-          <div style={{ marginTop: '12px', textAlign: 'center', fontSize: '14px', color: '#6b7280' }}>
-            已有账号？{' '}
-            <Link to="/login" style={{ color: '#1f6fe5', fontWeight: 600 }}>
-              直接登录
-            </Link>
-          </div>
-        </div>
-
-        <div style={{ marginTop: '32px', textAlign: 'center' }}>
-          <Link to="/" style={{ color: '#1f6fe5', fontSize: '15px', fontWeight: 500 }}>
-            ← 返回首页
-          </Link>
-        </div>
-      </div>
+          <p className="auth-legal">注册即表示你同意服务条款和隐私政策。</p>
+          <p className="auth-switch">
+            已有账号？<Link to="/login">直接登录</Link>
+          </p>
+        </section>
+      </main>
     </>
   );
 };

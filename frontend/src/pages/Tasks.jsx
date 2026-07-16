@@ -1,17 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
-import { getAuthToken, getCurrentStudent, getStoredStudent, getStudent } from '../api/client';
-
-const TASK_GROUPS = [
-  { key: 'active', title: '进行中', hint: '今天就能推进的小行动' },
-  { key: 'completed', title: '已完成', hint: '已经打卡沉淀的行动' },
-  { key: 'expired', title: '已过期', hint: '需要重新选择节奏的任务' }
-];
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
+import { getAuthToken, getCurrentStudent, getStudent } from '../api/client';
+import { groupTasksForActionList } from '../utils/growth';
 
 const formatDate = (value) => {
-  if (!value) return '未设置';
+  if (!value) return '未设置截止时间';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '未设置';
+  if (Number.isNaN(date.getTime())) return '未设置截止时间';
   return new Intl.DateTimeFormat('zh-CN', {
     month: '2-digit',
     day: '2-digit',
@@ -20,40 +15,14 @@ const formatDate = (value) => {
   }).format(date);
 };
 
-const getTaskGroup = (task) => {
-  if (task.status === '已完成') return 'completed';
-  if (task.status === '已过期') return 'expired';
-
-  if (task.deadline) {
-    const deadline = new Date(task.deadline);
-    if (!Number.isNaN(deadline.getTime()) && deadline.getTime() < Date.now()) {
-      return 'expired';
-    }
-  }
-
-  return 'active';
-};
-
-const getInitialStudent = () => {
-  if (!getAuthToken()) return null;
-  return getStoredStudent();
-};
-
 const Tasks = () => {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const outletContext = useOutletContext() || {};
-  const queryEmail = searchParams.get('email');
-  const workspaceStudent = outletContext.student;
-  const workspaceStudentEmail = workspaceStudent?.email;
-  const setWorkspaceStudent = outletContext.setStudent;
-  const [email, setEmail] = useState(
-    queryEmail || workspaceStudentEmail || getInitialStudent()?.email || ''
-  );
-  const [student, setStudent] = useState(workspaceStudent || getInitialStudent());
+  const [student, setStudent] = useState(outletContext.student || null);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -62,24 +31,8 @@ const Tasks = () => {
       setLoading(true);
       setError('');
 
-      const storedStudent = getInitialStudent();
-      let nextEmail = queryEmail || storedStudent?.email || workspaceStudentEmail || '';
-      let identity = storedStudent || workspaceStudent || null;
-
-      if (!nextEmail && getAuthToken()) {
-        try {
-          identity = await getCurrentStudent();
-          nextEmail = identity.email;
-          setWorkspaceStudent?.(identity);
-        } catch {
-          nextEmail = '';
-          identity = null;
-        }
-      }
-
-      if (!nextEmail) {
+      if (!getAuthToken()) {
         if (alive) {
-          setEmail('');
           setStudent(null);
           setTasks([]);
           setLoading(false);
@@ -88,20 +41,16 @@ const Tasks = () => {
       }
 
       try {
-        const data = await getStudent(nextEmail);
-        if (alive) {
-          setEmail(nextEmail);
-          setStudent(data);
-          setTasks(Array.isArray(data.tasks) ? data.tasks : []);
-          setWorkspaceStudent?.(data);
-        }
+        const identity = await getCurrentStudent();
+        const data = await getStudent(identity.email);
+        if (!alive) return;
+        setStudent(data);
+        setTasks(Array.isArray(data.tasks) ? data.tasks : []);
+        outletContext.setStudent?.(identity);
       } catch (err) {
-        if (alive) {
-          setEmail(nextEmail);
-          setStudent(identity || { email: nextEmail });
-          setTasks([]);
-          setError(err.response?.data?.detail || '任务列表加载失败，请稍后重试。');
-        }
+        if (!alive) return;
+        setTasks([]);
+        setError(err.response?.data?.detail || '任务列表加载失败，请稍后重试。');
       } finally {
         if (alive) setLoading(false);
       }
@@ -111,48 +60,53 @@ const Tasks = () => {
     return () => {
       alive = false;
     };
-  }, [queryEmail, setWorkspaceStudent, workspaceStudentEmail]);
+  }, [outletContext.setStudent, reloadKey]);
 
-  const groupedTasks = useMemo(() => {
-    const groups = TASK_GROUPS.reduce((nextGroups, group) => {
-      nextGroups[group.key] = [];
-      return nextGroups;
-    }, {});
-
-    tasks.forEach((task) => {
-      groups[getTaskGroup(task)].push(task);
-    });
-
-    return groups;
-  }, [tasks]);
-
-  const totalCount = tasks.length;
-  const chatHref = email ? `/app/chat?email=${encodeURIComponent(email)}` : '/app/chat';
+  const taskGroups = useMemo(() => groupTasksForActionList(tasks), [tasks]);
 
   if (loading) {
     return (
       <section className="workspace-view">
         <div className="workspace-state-card is-inline">
           <div className="workspace-state-mark">TASK</div>
-          <h2>正在同步任务列表</h2>
-          <p>正在读取你的微行动任务、打卡状态和截止时间。</p>
+          <h2>正在同步微行动</h2>
+          <p>正在读取任务内容、完成状态和建议时长。</p>
         </div>
       </section>
     );
   }
 
-  if (!email) {
+  if (!student && !getAuthToken()) {
     return (
       <section className="workspace-state">
         <div className="workspace-state-card">
           <div className="workspace-state-mark">ID</div>
-          <h2>需要先确认学生身份</h2>
-          <p>任务管理依赖学生邮箱。登录后会自动拉取你的微行动任务。</p>
+          <h2>登录后查看微行动</h2>
+          <p>微行动属于你的成长记录，登录后会自动恢复。</p>
           <Link to="/login" className="workspace-primary-link">
-            登录已有账号 →
+            登录已有账号
           </Link>
-          <Link to="/register" className="workspace-secondary-link">
-            还没有账号？先注册
+        </div>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="workspace-state">
+        <div className="workspace-state-card">
+          <div className="workspace-state-mark">!</div>
+          <h2>暂时无法同步微行动</h2>
+          <p>{error}</p>
+          <button
+            type="button"
+            className="workspace-primary-link"
+            onClick={() => setReloadKey((value) => value + 1)}
+          >
+            重新同步
+          </button>
+          <Link to="/app/chat" className="workspace-secondary-link">
+            回到小海对话
           </Link>
         </div>
       </section>
@@ -164,72 +118,86 @@ const Tasks = () => {
       <div className="workspace-view-header">
         <div>
           <span className="workspace-kicker">MICRO ACTIONS</span>
-          <h2>任务管理</h2>
-          <p>
-            {student?.name ? `${student.name}，` : ''}这里汇总你和小海沉淀下来的行动任务。
-          </p>
+          <h2>微行动</h2>
+          <p>{student?.name ? `${student.name}，` : ''}先推进一件正在进行的事。</p>
         </div>
-        <Link to={chatHref} className="workspace-secondary-button">
-          回到对话生成任务
+        <Link to="/app/chat" className="workspace-secondary-button">
+          从对话生成任务
         </Link>
       </div>
 
-      {error && (
-        <div className="workspace-alert is-error">
-          <span>任务同步失败</span>
-          <p>{error}</p>
-        </div>
-      )}
-
-      {totalCount === 0 ? (
+      {tasks.length === 0 ? (
         <div className="workspace-empty-panel">
           <div className="workspace-state-mark">0</div>
-          <h3>还没有微行动任务</h3>
-          <p>先和小海聊 3 轮探索，解锁后即可把对话提炼成今天能完成的一小步。</p>
-          <Link to={chatHref} className="workspace-primary-link">
-            去对话区开始探索 →
+          <h3>还没有微行动</h3>
+          <p>先和小海完成三轮探索，再把对话提炼成今天能完成的一小步。</p>
+          <Link to="/app/chat" className="workspace-primary-link">
+            去和小海聊聊
           </Link>
         </div>
       ) : (
-        <div className="task-columns">
-          {TASK_GROUPS.map((group) => (
-            <section key={group.key} className="task-column" aria-label={group.title}>
-              <div className="task-column-head">
+        <div className="action-groups">
+          {taskGroups.map((group) => (
+            <section
+              key={group.key}
+              className={`action-group action-group-${group.key}`}
+              aria-labelledby={`action-group-${group.key}`}
+            >
+              <header className="action-group-header">
                 <div>
-                  <h3>{group.title}</h3>
+                  <h3 id={`action-group-${group.key}`}>{group.title}</h3>
                   <p>{group.hint}</p>
                 </div>
-                <span>{groupedTasks[group.key].length}</span>
-              </div>
+                <span>{group.tasks.length}</span>
+              </header>
 
-              <div className="task-card-list">
-                {groupedTasks[group.key].length === 0 ? (
-                  <div className="task-mini-empty">暂无{group.title}任务</div>
-                ) : (
-                  groupedTasks[group.key].map((task) => (
-                    <article key={task.id} className={`task-card task-card-${group.key}`}>
-                      <div className="task-card-topline">
-                        <span>{task.status}</span>
-                        <span>#{task.id}</span>
+              {group.tasks.length === 0 ? (
+                <p className="action-empty">暂无{group.title}任务</p>
+              ) : (
+                <div className="action-list">
+                  {group.tasks.map((task) => (
+                    <article key={task.id} className="action-item">
+                      <div className="action-item-main">
+                        <div className="action-item-topline">
+                          <span>{task.status}</span>
+                          <span>{task.estimated_minutes || 15} 分钟</span>
+                          {task.growth_points > 0 && <span>成长值 +{task.growth_points}</span>}
+                        </div>
+                        <h4>{task.description}</h4>
+                        <div className="action-item-meta">
+                          <span>
+                            {group.key === 'completed' && task.completed_at
+                              ? `完成于 ${formatDate(task.completed_at)}`
+                              : `截止 ${formatDate(task.deadline)}`}
+                          </span>
+                          {(task.topic_tags || []).slice(0, 2).map((tag) => (
+                            <span key={tag}>#{tag}</span>
+                          ))}
+                        </div>
                       </div>
-                      <p className="task-card-desc">{task.description}</p>
-                      <div className="task-card-meta">
-                        <span>截止：{formatDate(task.deadline)}</span>
-                        {task.completed_at && <span>完成：{formatDate(task.completed_at)}</span>}
-                      </div>
+
                       {group.key === 'active' && (
-                        <button
-                          type="button"
-                          className="task-card-action"
-                          onClick={() => navigate(`/checkin?task_id=${task.id}`)}
-                        >
-                          去打卡
-                        </button>
+                        <div className="action-item-controls">
+                          <button
+                            type="button"
+                            className="action-primary"
+                            onClick={() => navigate(`/app/focus?task_id=${task.id}`)}
+                          >
+                            开始专注
+                          </button>
+                          <button
+                            type="button"
+                            className="action-secondary"
+                            onClick={() => navigate(`/app/checkin?task_id=${task.id}`)}
+                          >
+                            去打卡
+                          </button>
+                        </div>
                       )}
                     </article>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </section>
           ))}
         </div>

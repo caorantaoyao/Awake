@@ -1,6 +1,8 @@
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+import json
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from datetime import datetime
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List, Literal, Optional
 from enum import Enum
 
 
@@ -58,12 +60,25 @@ class TaskResponse(BaseModel):
     status: TaskStatusEnum
     deadline: Optional[datetime] = None
     feedback: Optional[str] = None
+    estimated_minutes: int
+    growth_points: int
+    topic_tags: List[str]
     created_at: datetime
     completed_at: Optional[datetime] = None
     operation_log: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("topic_tags", mode="before")
+    @classmethod
+    def parse_topic_tags(cls, value):
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+                return parsed if isinstance(parsed, list) else []
+            except (TypeError, json.JSONDecodeError):
+                return []
+        return value or []
 
 
 class StudentWithTasksResponse(StudentResponse):
@@ -77,7 +92,10 @@ class ApiResponse(BaseModel):
 
 
 class ChatMessage(BaseModel):
-    role: str = Field(..., description="消息角色：user/assistant/system")
+    role: Literal["user", "assistant"] = Field(
+        ...,
+        description="消息角色：user/assistant",
+    )
     content: str = Field(..., description="消息内容")
 
 
@@ -91,6 +109,91 @@ class ChatResponse(BaseModel):
     reply: str = Field(..., description="AI 回复内容")
     mode: str = Field(..., description="对话模式：deerflow/mock")
     can_extract_task: bool = False
+
+
+class ProfileUpdateRequest(BaseModel):
+    interest_tags: Optional[List[str]] = None
+    ability_tags: Optional[List[str]] = None
+    exploration_stage: Optional[str] = Field(None, min_length=1, max_length=50)
+    summary: Optional[str] = Field(None, max_length=1000)
+
+
+class ProfileResponse(BaseModel):
+    interest_tags: List[str] = Field(default_factory=list)
+    ability_tags: List[str] = Field(default_factory=list)
+    exploration_stage: str = "探索中"
+    summary: str = ""
+    updated_at: Optional[datetime] = None
+    is_empty: bool = True
+    guidance: Optional[str] = None
+
+
+class ConversationMessageResponse(BaseModel):
+    id: int
+    role: str
+    content: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ConversationHistoryResponse(BaseModel):
+    messages: List[ConversationMessageResponse] = Field(default_factory=list)
+
+
+class TodayTasksResponse(BaseModel):
+    primary_task: Optional[TaskResponse] = None
+    tasks: List[TaskResponse] = Field(default_factory=list)
+
+
+class GrowthResourceResponse(BaseModel):
+    id: str
+    title: str
+    resource_type: str
+    description: str
+    url: Optional[str] = None
+    reason: str
+
+
+class GrowthResourceListResponse(BaseModel):
+    personalized: bool
+    resources: List[GrowthResourceResponse] = Field(default_factory=list)
+
+
+class GrowthEventResponse(BaseModel):
+    id: int
+    task_id: Optional[int] = None
+    event_type: str
+    title: str
+    description: Optional[str] = None
+    growth_points: int
+    topic_tags: List[str]
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("topic_tags", mode="before")
+    @classmethod
+    def parse_topic_tags(cls, value):
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+                return parsed if isinstance(parsed, list) else []
+            except (TypeError, json.JSONDecodeError):
+                return []
+        return value or []
+
+
+class GrowthEventListResponse(BaseModel):
+    events: List[GrowthEventResponse] = Field(default_factory=list)
+
+
+class GrowthSummaryResponse(BaseModel):
+    days: int
+    created_count: int
+    completed_count: int
+    growth_points: int
+    top_interest: Optional[str] = None
 
 
 class ExtractTaskRequest(BaseModel):

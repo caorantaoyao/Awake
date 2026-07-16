@@ -1,47 +1,63 @@
 import { useLocation } from 'react-router-dom';
 
 const SECTION_TITLES = {
+  '/app/today': {
+    title: '今日',
+    eyebrow: 'TODAY'
+  },
   '/app/chat': {
-    title: '对话工作区',
+    title: '对话',
     eyebrow: 'XIAOHAI'
   },
   '/app/tasks': {
-    title: '任务管理',
+    title: '微行动',
     eyebrow: 'ACTIONS'
   },
-  '/app/capabilities': {
-    title: '能力控制',
-    eyebrow: 'DEERFLOW'
+  '/app/checkin': {
+    title: '行动打卡',
+    eyebrow: 'CHECK IN'
+  },
+  '/app/explore': {
+    title: '探索',
+    eyebrow: 'EXPLORE'
+  },
+  '/app/growth': {
+    title: '成长',
+    eyebrow: 'GROWTH'
   },
   '/app/settings': {
-    title: '设置',
-    eyebrow: 'SYSTEM'
+    title: '账号设置',
+    eyebrow: 'ACCOUNT'
   }
 };
 
 const getStatusMeta = (status) => {
-  if (status?.online === true) {
-    return { className: 'is-online', label: status.label || '在线' };
+  if (status?.availability === 'online') {
+    return { className: 'is-online', label: '可以开始对话' };
   }
-  if (status?.online === false) {
-    return { className: 'is-offline', label: status.label || '离线' };
+  if (status?.availability === 'degraded') {
+    return { className: 'is-offline', label: '基础模式可用' };
   }
-  return { className: 'is-unknown', label: status?.label || '待接入' };
+  if (status?.availability === 'unreachable') {
+    return { className: 'is-offline', label: '暂时无法连接' };
+  }
+  if (status?.availability === 'private') {
+    return { className: 'is-unknown', label: '按需连接' };
+  }
+  return { className: 'is-unknown', label: '正在连接' };
 };
 
 const ContextBar = ({
   student,
   deerflowStatus,
-  currentModel,
   onMenuClick,
   mobileSidebarOpen = false
 }) => {
   const location = useLocation();
-  const section = SECTION_TITLES[location.pathname] || SECTION_TITLES['/app/chat'];
+  const section = SECTION_TITLES[location.pathname] || SECTION_TITLES['/app/today'];
   const statusMeta = getStatusMeta(deerflowStatus);
-  const displayName = student?.name || '未登录学生';
-  const displayEmail = student?.email || '等待会话身份';
-  const modelName = currentModel || deerflowStatus?.model || '模型待接入';
+  const displayName = student?.name || '访客同学';
+  const displayEmail = student?.email || '登录后保存成长记录';
 
   return (
     <header className="context-bar">
@@ -78,18 +94,8 @@ const ContextBar = ({
         <div className="context-pill context-engine" aria-live="polite">
           <span className={`engine-dot ${statusMeta.className}`} aria-hidden="true" />
           <span className="context-pill-copy">
-            <span className="context-pill-label">DeerFlow</span>
+            <span className="context-pill-label">小海状态</span>
             <span className="context-pill-value">{statusMeta.label}</span>
-          </span>
-        </div>
-
-        <div className="context-pill context-model">
-          <span className="model-chip" aria-hidden="true">
-            M
-          </span>
-          <span className="context-pill-copy">
-            <span className="context-pill-label">当前模型</span>
-            <span className="context-pill-value">{modelName}</span>
           </span>
         </div>
       </div>

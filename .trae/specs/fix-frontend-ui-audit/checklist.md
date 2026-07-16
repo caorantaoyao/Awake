@@ -1,0 +1,43 @@
+- [x] Landing 所有导航项均指向真实 section 或真实路由，不存在 `href="#"` 和缺失锚点
+- [x] Landing 包含 Hero、工作原理、小海体验、微行动示例、信任说明和最终 CTA
+- [x] Landing 在 1366×768 下首屏 H1、描述、主 CTA 和核心图片可见
+- [x] Register 在 1366×768 下全部字段和提交按钮首屏可见
+- [x] Register/Login 在 390×844 下保持可读单列布局，输入和提交动作不被遮挡
+- [x] Landing、Register、Login、Success 的同类按钮、表单、标题和卡片遵循统一 token
+- [x] Success 只有一个明确主 CTA 进入 `/app/chat`，演示入口不与主流程竞争
+- [x] 学生 Sidebar 不显示 DeerFlow 能力入口，只保留对话、微行动、设置
+- [x] `/app/capabilities` 直接访问仍可用于内部联调
+- [x] ContextBar 不展示模型、gateway、provider、assistant_id 等工程参数
+- [x] Settings 使用学生可理解语言描述账户和小海可用性
+- [x] `/app/checkin` 在 WorkspaceLayout 内显示，侧边栏与上下文栏保留
+- [x] CheckIn 快速切换 task_id/email 时旧请求不得覆盖新任务，页面先进入 loading
+- [x] `/checkin` 与 `/checkin/demo` 保留查询参数并重定向到 `/app/checkin`
+- [x] Chat 和 Tasks 的打卡跳转统一使用 `/app/checkin`
+- [x] 打卡页在 Sidebar 中归属“微行动”导航高亮
+- [x] Chat 等待超过 5 秒和 15 秒时显示不同且可理解的状态说明
+- [x] Chat 长等待提供取消动作，取消后输入恢复且过期响应不会污染消息
+- [x] Chat 请求失败后保留用户消息并提供“重试刚才消息”
+- [x] Chat 切换 email 身份时中止旧请求并清空旧会话状态，不发生跨用户消息串线
+- [x] Chat 从有 email 切换为无 email 时不会使用旧身份发起欢迎请求，StrictMode 不产生重复请求
+- [x] Chat 任务提炼响应绑定当前身份，旧身份请求不得跳转到打卡页
+- [x] Chat 身份切换时不保留上一用户输入草稿、Toast 或提炼中状态
+- [x] Tasks 的 loading、未登录、error、empty、data 状态严格互斥
+- [x] Tasks 错误态提供恢复动作，空态只有一个主 CTA
+- [x] 学生主流程不展示 gateway、provider、skill、assistant_id 等工程词
+- [x] 每个关键页面只有一个主要 CTA 意图，相同意图文案一致
+- [x] 全局样式包含语义化颜色、表面、边框、状态、圆角、阴影和字号 token
+- [x] 本次涉及页面不保留可由语义 class 替代的大段 inline style
+- [x] 工作台与聊天布局使用 `100dvh` 或兼容动态视口的写法
+- [x] 移动端聊天输入区处理 `safe-area-inset-bottom`
+- [x] `prefers-reduced-motion: reduce` 下入场与循环动画被禁用或显著缩短
+- [x] 链接、按钮、输入框和侧栏控件具有清晰 `:focus-visible` 状态
+- [x] Chat 输入框具有稳定可访问名称，打卡页“微行动”导航具有 `aria-current`
+- [x] 小海状态能区分降级可用与服务不可达，不做无法保证的可用性承诺
+- [x] global.css 的 checkin、settings、chat-input 和共用按钮规则不存在明显重复事实来源
+- [x] 未新增 UI 库、状态管理库、字体包或动画依赖
+- [x] `cd frontend && npm run build` 通过
+- [x] 桌面 1366×768 浏览器验证通过
+- [x] 移动 390×844 浏览器验证通过
+- [x] 旧 `/chat` 重定向兼容查询参数
+- [x] 浏览器控制台无本次变更新增 error
+- [x] Ponytail 最终审查通过：无未调用代码、重复 helper、无依据兜底或无关重构

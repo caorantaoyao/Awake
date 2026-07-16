@@ -13,6 +13,17 @@ TEST_PASSWORD = "StrongPass123!"
 LEGACY_PASSWORD = "LegacyPass123!"
 
 
+def authenticate(client, email, password=TEST_PASSWORD):
+    response = client.post("/api/login", json={
+        "email": email,
+        "password": password
+    })
+    assert response.status_code == 200
+    token = response.json()["data"]["access_token"]
+    client.headers["Authorization"] = f"Bearer {token}"
+    return response.json()["data"]["student"]
+
+
 class TestHealthCheck:
     def test_health_endpoint(self, client):
         response = client.get("/api/health")
@@ -213,12 +224,15 @@ class TestAuthAPI:
 
 class TestTaskAPI:
     def _register_student(self, client, email="test@example.com"):
-        return client.post("/api/register", json={
+        response = client.post("/api/register", json={
             "name": "测试学生",
             "email": email,
             "grade": "高一",
             "password": TEST_PASSWORD
         })
+        assert response.status_code == 201
+        authenticate(client, email)
+        return response
 
     def test_create_task_success(self, client):
         self._register_student(client)
@@ -232,12 +246,17 @@ class TestTaskAPI:
         assert data["data"]["task"]["description"] == "观看一个AI科普视频"
         assert data["data"]["task"]["status"] == "进行中"
 
-    def test_create_task_nonexistent_student(self, client):
+    def test_create_task_ignores_nonexistent_student_email(self, client):
+        student = self._register_student(client)
         response = client.post("/api/tasks", json={
             "student_email": "nonexistent@example.com",
             "description": "测试任务"
         })
-        assert response.status_code == 404
+        assert response.status_code == 201
+        assert (
+            response.json()["data"]["task"]["student_id"]
+            == student.json()["data"]["student"]["id"]
+        )
 
     def test_get_task(self, client):
         self._register_student(client)
@@ -252,6 +271,7 @@ class TestTaskAPI:
         assert response.json()["description"] == "测试任务"
 
     def test_get_nonexistent_task(self, client):
+        self._register_student(client)
         response = client.get("/api/tasks/99999")
         assert response.status_code == 404
 
@@ -264,6 +284,7 @@ class TestTaskCompleteAPI:
             "grade": "高一",
             "password": TEST_PASSWORD
         })
+        authenticate(client, "test@example.com")
         task_resp = client.post("/api/tasks", json={
             "student_email": "test@example.com",
             "description": "完成测试任务"
@@ -292,6 +313,13 @@ class TestTaskCompleteAPI:
         assert response.json()["data"]["task"]["status"] == "已完成"
 
     def test_complete_nonexistent_task(self, client):
+        client.post("/api/register", json={
+            "name": "测试学生",
+            "email": "test@example.com",
+            "grade": "高一",
+            "password": TEST_PASSWORD
+        })
+        authenticate(client, "test@example.com")
         response = client.post("/api/task-complete", json={
             "task_id": 99999
         })
@@ -313,6 +341,7 @@ class TestStudentAPI:
             "grade": "高二",
             "password": TEST_PASSWORD
         })
+        authenticate(client, "lisi@example.com")
         response = client.get("/api/students/lisi@example.com")
         assert response.status_code == 200
         data = response.json()
@@ -322,6 +351,13 @@ class TestStudentAPI:
         assert "tasks" in data
 
     def test_get_nonexistent_student(self, client):
+        client.post("/api/register", json={
+            "name": "当前学生",
+            "email": "current@example.com",
+            "grade": "高一",
+            "password": TEST_PASSWORD
+        })
+        authenticate(client, "current@example.com")
         response = client.get("/api/students/nonexistent@example.com")
         assert response.status_code == 404
 
@@ -332,6 +368,7 @@ class TestStudentAPI:
             "grade": "高三",
             "password": TEST_PASSWORD
         })
+        authenticate(client, "wangwu@example.com")
         client.post("/api/tasks", json={
             "student_email": "wangwu@example.com",
             "description": "任务1"
@@ -346,7 +383,17 @@ class TestStudentAPI:
 
 
 class TestChatAPI:
+    def _authenticate_student(self, client):
+        client.post("/api/register", json={
+            "name": "小明",
+            "email": "chat@example.com",
+            "grade": "高一",
+            "password": TEST_PASSWORD
+        })
+        authenticate(client, "chat@example.com")
+
     def test_chat_returns_mock_reply(self, client):
+        self._authenticate_student(client)
         response = client.post("/api/chat", json={
             "messages": [
                 {"role": "user", "content": "我最近有点迷茫，不知道该做什么。"}
@@ -363,6 +410,7 @@ class TestChatAPI:
         assert data["can_extract_task"] is False
 
     def test_chat_can_extract_after_three_turns(self, client):
+        self._authenticate_student(client)
         response = client.post("/api/chat", json={
             "messages": [
                 {"role": "user", "content": "我最近对画画挺感兴趣的。"},
@@ -383,6 +431,7 @@ class TestChatAPI:
         assert data["can_extract_task"] is True
 
     def test_chat_empty_messages(self, client):
+        self._authenticate_student(client)
         response = client.post("/api/chat", json={
             "messages": []
         })
@@ -397,12 +446,15 @@ class TestChatAPI:
 
 class TestExtractTaskAPI:
     def _register_student(self, client, email="chat_student@example.com"):
-        return client.post("/api/register", json={
+        response = client.post("/api/register", json={
             "name": "对话学生",
             "email": email,
             "grade": "高一",
             "password": TEST_PASSWORD
         })
+        assert response.status_code == 201
+        authenticate(client, email)
+        return response
 
     def test_extract_task_success(self, client):
         email = "chat_student@example.com"
@@ -424,14 +476,19 @@ class TestExtractTaskAPI:
         assert task["status"] == "进行中"
         assert "id" in task
 
-    def test_extract_task_student_not_found(self, client):
+    def test_extract_task_ignores_nonexistent_student_email(self, client):
+        student = self._register_student(client)
         response = client.post("/api/chat/extract-task", json={
             "student_email": "nonexistent@example.com",
             "messages": [
                 {"role": "user", "content": "随便聊聊。"}
             ]
         })
-        assert response.status_code == 404
+        assert response.status_code == 201
+        assert (
+            response.json()["data"]["task"]["student_id"]
+            == student.json()["data"]["student"]["id"]
+        )
 
 
 class TestPasswordHashing:

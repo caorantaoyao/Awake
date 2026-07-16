@@ -7,7 +7,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
         // DeerFlow 对话请求可能耗时数十秒，放宽代理超时避免被提前掐断
         timeout: 130000,

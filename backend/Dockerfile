@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM python:3.11-slim AS runtime
+FROM python:3.11-alpine AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -8,12 +8,18 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+RUN addgroup -S awaken && adduser -S awaken -G awaken
+
 COPY backend/requirements.txt /tmp/requirements.txt
 RUN pip install --upgrade pip \
     && pip install -r /tmp/requirements.txt \
-    && mkdir -p /app/data
+    && rm /tmp/requirements.txt \
+    && mkdir -p /app/data \
+    && chown -R awaken:awaken /app
 
-COPY backend/ .
+COPY --chown=awaken:awaken backend/ .
+
+USER awaken
 
 EXPOSE 8000
 

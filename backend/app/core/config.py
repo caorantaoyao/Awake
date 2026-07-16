@@ -53,6 +53,17 @@ class Settings(BaseSettings):
         "3. 当方向清晰时，为他生成一个符合 SMART 原则、今天就能完成的「微行动」任务，"
         "例如「在 B 站观看 5 分钟相关职业的介绍视频」「用 10 分钟写下你对某个职业最好奇的 3 个问题」。"
     )
+    # Awaken 学生成长 Skill 的稳定输出契约；阶段规则仍由上面两段互斥控制。
+    XIAOHAI_GROWTH_SKILL_PROMPT: str = (
+        "\n\n【Awaken 学生成长 Skill 输出约束】\n"
+        "使用 awaken-student-growth Skill，并且只输出一个符合 "
+        "awaken.student-growth.v1 契约的 JSON 对象，不要添加 Markdown 围栏或解释文字。"
+        "画像只能包含有对话证据、可修正的兴趣与能力候选，禁止人格、心理、健康、家庭或其他敏感推断。"
+        "探索期的 micro_action 必须为 null；深入引导期如生成 micro_action，"
+        "必须包含 description、estimated_minutes、growth_points、topic_tags，"
+        "其中 estimated_minutes 为 5-30 的整数，growth_points 为 1-100 的整数，"
+        "topic_tags 为来自当前对话证据的非空字符串数组。"
+    )
     # 探索期轮数阈值：user 消息达到该轮数后进入解锁阶段。
     # 与 routes.py 的 can_extract_task 阈值保持一致。
     XIAOHAI_UNLOCK_AFTER_TURNS: int = 3

@@ -92,29 +92,21 @@ async def test_skill_toggle_falls_back_when_deerflow_unreachable(monkeypatch):
     assert result.error
 
 
-def test_deerflow_control_endpoints_return_offline_fallback(client):
-    status_response = client.get("/api/deerflow/status")
-    assert status_response.status_code == 200
-    status_data = status_response.json()
-    assert status_data["online"] is False
-    assert status_data["assistant_id"] == "lead_agent"
-    assert status_data["model"] is None
+@pytest.mark.parametrize(
+    ("method", "path", "json"),
+    [
+        ("get", "/api/deerflow/status", None),
+        ("get", "/api/deerflow/skills", None),
+        ("get", "/api/deerflow/models", None),
+        ("put", "/api/deerflow/skills/search", {"enabled": True}),
+    ],
+)
+def test_deerflow_control_endpoints_require_authentication(
+    client,
+    method,
+    path,
+    json,
+):
+    response = client.request(method, path, json=json)
 
-    skills_response = client.get("/api/deerflow/skills")
-    assert skills_response.status_code == 200
-    skills_data = skills_response.json()
-    assert skills_data["online"] is False
-    assert skills_data["skills"] == []
-
-    models_response = client.get("/api/deerflow/models")
-    assert models_response.status_code == 200
-    models_data = models_response.json()
-    assert models_data["online"] is False
-    assert models_data["models"] == []
-
-    toggle_response = client.put("/api/deerflow/skills/search", json={"enabled": True})
-    assert toggle_response.status_code == 200
-    toggle_data = toggle_response.json()
-    assert toggle_data["online"] is False
-    assert toggle_data["skill"]["name"] == "search"
-    assert toggle_data["skill"]["enabled"] is None
+    assert response.status_code == 401
