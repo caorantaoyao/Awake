@@ -25,3 +25,12 @@ logs/
 # 测试与自动化产物
 output/
 .playwright-cli/
+
+# 本地工具缓存与生成内容
+.superpowers/
+.trae/deepwiki/
+
+# IDE/OS
+.DS_Store
+.idea/
+.vscode/

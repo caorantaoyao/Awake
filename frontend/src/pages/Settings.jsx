@@ -1,22 +1,47 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { healthCheck } from '../api/client';
+import {
+  healthCheck,
+  getPreferences,
+  updatePreferences,
+  getCurrentStudent,
+  saveAuthSession,
+  getStoredStudent,
+  getAuthToken,
+} from '../api/client';
+
+const CHAT_MODE_OPTIONS = [
+  { value: 'explore_first', label: '先探索，再行动', desc: '小海会先理解你的想法，不急着替你下结论。' },
+  { value: 'balanced', label: '平衡模式', desc: '适时追问，也适时给出建议，在探索和行动间保持平衡。' },
+  { value: 'direct_action', label: '直接给建议', desc: '减少追问，更快进入可行动的方向。' },
+];
+
+const UNLOCK_OPTIONS = [
+  { value: 2, label: '快速解锁', desc: '2 轮对话后即可生成微行动' },
+  { value: 3, label: '推荐', desc: '3 轮对话后生成微行动' },
+  { value: 5, label: '深入探索', desc: '5 轮对话后再生成微行动' },
+];
 
 const Settings = () => {
   const outletContext = useOutletContext() || {};
   const student = outletContext.student;
+  const setStudent = outletContext.setStudent;
   const status = outletContext.deerflowStatus;
+  const isAuthenticated = Boolean(student?.email);
 
   const [health, setHealth] = useState(null);
   const [healthError, setHealthError] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [prefs, setPrefs] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState(null);
 
   const statusLabel = {
     online: '可以对话',
     degraded: '基础模式',
     unreachable: '暂时无法连接',
-    private: '按需连接'
+    private: '按需连接',
   }[status?.availability] || '检测中';
   const statusTone =
     status?.availability === 'online'
@@ -31,7 +56,7 @@ const Settings = () => {
     return '检测中';
   }, [health, healthError]);
 
-  const loadSettings = async ({ silent = false } = {}) => {
+  const loadSettings = useCallback(async ({ silent = false } = {}) => {
     if (silent) {
       setRefreshing(true);
     } else {
@@ -46,13 +71,60 @@ const Settings = () => {
       setHealthError('健康检查接口请求失败');
     }
 
+    const defaultPrefs = {
+      chat_mode: 'explore_first',
+      unlock_after_turns: 3,
+      chat_mode_label: '先探索，再行动',
+      unlock_label: '探索 3 轮后解锁',
+    };
+
+    if (!isAuthenticated) {
+      setPrefs(defaultPrefs);
+    } else {
+      try {
+        const p = await getPreferences();
+        setPrefs(p);
+      } catch {
+        setPrefs(defaultPrefs);
+      }
+    }
+
     setLoading(false);
     setRefreshing(false);
-  };
+  }, [isAuthenticated]);
 
   useEffect(() => {
     loadSettings();
-  }, []);
+  }, [loadSettings]);
+
+  const handlePrefChange = useCallback(async (key, value) => {
+    if (!prefs || saving || !isAuthenticated) return;
+    const nextPrefs = { ...prefs, [key]: value };
+    setPrefs(nextPrefs);
+    setSaving(true);
+    setSaveMessage(null);
+    try {
+      const updated = await updatePreferences({ [key]: value });
+      setPrefs(updated);
+      setSaveMessage({ type: 'success', text: '偏好已保存' });
+      if (setStudent) {
+        try {
+          const fresh = await getCurrentStudent();
+          const token = getAuthToken();
+          if (token) saveAuthSession({ accessToken: token, student: fresh });
+          setStudent(fresh);
+        } catch {
+          // 静默失败
+        }
+      }
+    } catch {
+      setPrefs(prefs);
+      setSaveMessage({ type: 'error', text: '保存失败，请稍后重试' });
+    } finally {
+      setSaving(false);
+      setTimeout(() => setSaveMessage(null), 2500);
+    }
+  }, [prefs, saving, setStudent]);
 
   if (loading) {
     return (
@@ -72,7 +144,7 @@ const Settings = () => {
         <div>
           <span className="workspace-kicker">MY SPACE</span>
           <h2>设置</h2>
-          <p>查看你的账号、小海的可用状态和当前探索节奏。</p>
+          <p>查看你的账号、小海的可用状态，调整对话方式与行动节奏。</p>
         </div>
         <button
           type="button"
@@ -83,6 +155,12 @@ const Settings = () => {
           {refreshing ? '刷新中...' : '刷新状态'}
         </button>
       </div>
+
+      {saveMessage && (
+        <div className={`workspace-alert ${saveMessage.type === 'error' ? 'is-error' : 'is-success'}`}>
+          <span>{saveMessage.text}</span>
+        </div>
+      )}
 
       {status?.availability === 'degraded' && (
         <div className="workspace-alert is-warning">
@@ -118,16 +196,58 @@ const Settings = () => {
           </p>
         </article>
 
-        <article className="settings-card">
+        <article className="settings-card is-editable">
           <span className="settings-label">对话方式</span>
-          <strong>先探索，再行动</strong>
-          <p>小海会先理解你的想法，不急着替你下结论。</p>
+          <strong>{prefs?.chat_mode_label}</strong>
+          <p>选择你希望小海陪伴你的节奏。</p>
+          <div className="settings-segmented" role="radiogroup" aria-label="对话方式">
+            {CHAT_MODE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                role="radio"
+                aria-checked={prefs?.chat_mode === opt.value}
+                className={`settings-segment${prefs?.chat_mode === opt.value ? ' is-active' : ''}`}
+                onClick={() => handlePrefChange('chat_mode', opt.value)}
+                disabled={saving || !isAuthenticated}
+                title={opt.desc}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <p className="settings-hint">
+            {isAuthenticated
+              ? CHAT_MODE_OPTIONS.find((o) => o.value === prefs?.chat_mode)?.desc
+              : '登录后可调整小海与你的对话节奏。'}
+          </p>
         </article>
 
-        <article className="settings-card">
+        <article className="settings-card is-editable">
           <span className="settings-label">微行动节奏</span>
-          <strong>探索 3 轮后解锁</strong>
-          <p>聊得足够具体后，再把想法变成今天能完成的一步。</p>
+          <strong>{prefs?.unlock_label}</strong>
+          <p>决定聊多少轮后，小海会为你生成今天的微行动。</p>
+          <div className="settings-segmented" role="radiogroup" aria-label="微行动节奏">
+            {UNLOCK_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                role="radio"
+                aria-checked={prefs?.unlock_after_turns === opt.value}
+                className={`settings-segment${prefs?.unlock_after_turns === opt.value ? ' is-active' : ''}`}
+                onClick={() => handlePrefChange('unlock_after_turns', opt.value)}
+                disabled={saving || !isAuthenticated}
+                title={opt.desc}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <p className="settings-hint">
+            {isAuthenticated
+              ? UNLOCK_OPTIONS.find((o) => o.value === prefs?.unlock_after_turns)?.desc
+              : '登录后可设置生成微行动的探索轮次。'}
+          </p>
         </article>
       </div>
 

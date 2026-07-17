@@ -35,11 +35,20 @@ class StudentResponse(BaseModel):
     name: str
     email: str
     grade: str
+    chat_mode: str = "explore_first"
+    unlock_after_turns: int = 3
+    onboarding_completed: bool = False
     registered_at: datetime
     operation_log: datetime
 
     class Config:
         from_attributes = True
+
+
+class OnboardingCompleteRequest(BaseModel):
+    interest_tags: List[str] = Field(default_factory=list, max_length=10)
+    confusion_tags: List[str] = Field(default_factory=list, max_length=10)
+    learning_style: Optional[str] = Field(None, max_length=50)
 
 
 class TaskCreateRequest(BaseModel):
@@ -123,6 +132,7 @@ class ProfileResponse(BaseModel):
     ability_tags: List[str] = Field(default_factory=list)
     exploration_stage: str = "探索中"
     summary: str = ""
+    welcome_message: str = ""
     updated_at: Optional[datetime] = None
     is_empty: bool = True
     guidance: Optional[str] = None
@@ -258,3 +268,79 @@ class ModelListResponse(BaseModel):
     raw: Optional[Dict[str, Any]] = Field(None, description="DeerFlow 原始返回")
 
     model_config = ConfigDict(extra="allow")
+
+
+class ChatModeSchema(str, Enum):
+    EXPLORE_FIRST = "explore_first"
+    BALANCED = "balanced"
+    DIRECT_ACTION = "direct_action"
+
+
+class PreferencesUpdateRequest(BaseModel):
+    chat_mode: Optional[ChatModeSchema] = None
+    unlock_after_turns: Optional[int] = Field(None, ge=2, le=8, description="解锁微行动所需的对话轮次，2-8 之间")
+
+
+class PreferencesResponse(BaseModel):
+    chat_mode: str
+    unlock_after_turns: int
+    chat_mode_label: str
+    unlock_label: str
+
+
+class StreamChatRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+    message: str = Field(..., min_length=1, description="用户发送的消息")
+    conversation_id: Optional[int] = Field(None, description="会话 ID，为空时创建新会话")
+    model_name: Optional[str] = Field(None, description="模型名称覆盖")
+    thinking_enabled: bool = Field(False, description="是否启用思考模式")
+    is_plan_mode: bool = Field(False, description="是否启用计划模式")
+    file_ids: Optional[List[str]] = Field(None, description="上传的文件 ID 列表")
+
+
+class ConversationCreateRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+    title: Optional[str] = Field(None, max_length=200, description="会话标题")
+    model_name: Optional[str] = None
+    thinking_enabled: bool = False
+    is_plan_mode: bool = False
+
+
+class ConversationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
+    id: int
+    thread_id: str
+    title: str
+    model_name: Optional[str] = None
+    thinking_enabled: bool = False
+    is_plan_mode: bool = False
+    created_at: datetime
+    updated_at: datetime
+
+
+class ConversationDetailResponse(ConversationResponse):
+    messages: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class ConversationUpdateRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+    title: Optional[str] = Field(None, max_length=200)
+    model_name: Optional[str] = None
+    thinking_enabled: Optional[bool] = None
+    is_plan_mode: Optional[bool] = None
+
+
+class ChatSuggestionsResponse(BaseModel):
+    suggestions: List[str] = Field(default_factory=list)
+
+
+class UploadFileResponse(BaseModel):
+    filename: str
+    file_id: Optional[str] = None
+    size: Optional[int] = None
+    mime_type: Optional[str] = None
+    error: Optional[str] = None
+
+
+class UploadFilesResponse(BaseModel):
+    files: List[UploadFileResponse] = Field(default_factory=list)

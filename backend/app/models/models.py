@@ -27,6 +27,12 @@ class TaskStatusEnum(str, enum.Enum):
     EXPIRED = "已过期"
 
 
+class ChatModeEnum(str, enum.Enum):
+    EXPLORE_FIRST = "explore_first"
+    BALANCED = "balanced"
+    DIRECT_ACTION = "direct_action"
+
+
 class Student(Base):
     __tablename__ = "students"
 
@@ -35,6 +41,9 @@ class Student(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     grade = Column(Enum(GradeEnum), nullable=False)
     password_hash = Column(String(255), nullable=True)
+    chat_mode = Column(String(20), nullable=False, server_default="explore_first")
+    unlock_after_turns = Column(Integer, nullable=False, server_default="3")
+    onboarding_completed = Column(Boolean, nullable=False, server_default="0")
     registered_at = Column(DateTime(timezone=True), server_default=func.now())
     operation_log = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -47,6 +56,11 @@ class Student(Base):
     )
     conversation_messages = relationship(
         "ConversationMessage",
+        back_populates="student",
+        cascade="all, delete-orphan",
+    )
+    conversations = relationship(
+        "Conversation",
         back_populates="student",
         cascade="all, delete-orphan",
     )
@@ -104,6 +118,7 @@ class StudentProfile(Base):
         nullable=False,
     )
     summary = Column(Text, default="", server_default="", nullable=False)
+    welcome_message = Column(Text, default="", server_default="", nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
         DateTime(timezone=True),
@@ -131,6 +146,23 @@ class ConversationMessage(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     student = relationship("Student", back_populates="conversation_messages")
+
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    student_id = Column(Integer, ForeignKey("students.id"), nullable=False, index=True)
+    thread_id = Column(String(100), nullable=False, unique=True, index=True)
+    title = Column(String(200), nullable=False, default="新对话")
+    model_name = Column(String(100), nullable=True)
+    thinking_enabled = Column(Boolean, default=False, server_default="0", nullable=False)
+    is_plan_mode = Column(Boolean, default=False, server_default="0", nullable=False)
+    is_active = Column(Boolean, default=True, server_default="1", nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    student = relationship("Student", back_populates="conversations")
 
 
 class GrowthResource(Base):

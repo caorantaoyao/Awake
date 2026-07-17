@@ -1,16 +1,42 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Toast from '../components/Toast';
 import { loginStudent, saveAuthSession } from '../api/client';
 
+const DEFAULT_REDIRECT = '/app/today';
+const ONBOARDING_PATH = '/onboarding';
+
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
+
+  const getRedirectTarget = () => {
+    const stateFrom = location.state?.from;
+    if (stateFrom && stateFrom.startsWith('/app')) return stateFrom;
+    const queryFrom = new URLSearchParams(location.search).get('from');
+    if (queryFrom && queryFrom.startsWith('/app')) return queryFrom;
+    return DEFAULT_REDIRECT;
+  };
+
+  const resolvePostLoginPath = (student) => {
+    if (student && student.onboarding_completed === false) {
+      return ONBOARDING_PATH;
+    }
+    return getRedirectTarget();
+  };
+
+  useEffect(() => {
+    if (email) return;
+    const prefill = location.state?.prefillEmail
+      || new URLSearchParams(location.search).get('email');
+    if (prefill) setEmail(prefill);
+  }, [location.state, location.search]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -39,7 +65,7 @@ const Login = () => {
           accessToken: result.data.access_token,
           student: result.data.student
         });
-        navigate(`/app/chat?email=${encodeURIComponent(result.data.student.email)}`);
+        navigate(resolvePostLoginPath(result.data.student), { replace: true });
       }
     } catch (err) {
       const errorMessage = err.response?.data?.detail || '登录失败，请稍后重试';

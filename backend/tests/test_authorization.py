@@ -46,10 +46,7 @@ def register_and_login(client, *, name: str, email: str) -> dict:
             "student_email": "anyone@example.com",
             "messages": [{"role": "user", "content": "生成任务"}],
         }),
-        ("get", "/api/deerflow/status", None),
-        ("get", "/api/deerflow/skills", None),
         ("put", "/api/deerflow/skills/search", {"enabled": True}),
-        ("get", "/api/deerflow/models", None),
     ],
 )
 def test_student_business_endpoints_require_token(client, method, path, json):
@@ -132,9 +129,9 @@ def test_chat_ignores_forged_student_name(client, monkeypatch):
     current = register_and_login(client, name="真实姓名", email="current@example.com")
     called_with = {}
 
-    async def fake_chat(messages, student_name):
+    async def fake_chat(messages, student_name, **kwargs):
         called_with["student_name"] = student_name
-        return {"reply": "测试回复", "mode": "mock"}
+        return {"reply": "测试回复", "mode": "deerflow", "thread_id": "test-thread"}
 
     monkeypatch.setattr("app.api.routes.deerflow_service.chat", fake_chat)
 
@@ -155,7 +152,7 @@ def test_extract_task_ignores_forged_identity_fields(client, monkeypatch):
     current = register_and_login(client, name="当前学生", email="current@example.com")
     other = register_and_login(client, name="其他学生", email="other@example.com")
 
-    async def fake_extract_task(messages, student_name):
+    async def fake_extract_task(messages, student_name, **kwargs):
         assert student_name == "当前学生"
         return {
             "description": "属于当前学生的任务",
@@ -185,22 +182,25 @@ def test_extract_task_ignores_forged_identity_fields(client, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    ("method", "path", "json"),
+    ("method", "path", "json", "needs_auth"),
     [
-        ("get", "/api/deerflow/status", None),
-        ("get", "/api/deerflow/skills", None),
-        ("put", "/api/deerflow/skills/search", {"enabled": True}),
-        ("get", "/api/deerflow/models", None),
+        ("get", "/api/deerflow/status", None, False),
+        ("get", "/api/deerflow/skills", None, False),
+        ("get", "/api/deerflow/models", None, False),
+        ("put", "/api/deerflow/skills/search", {"enabled": True}, True),
     ],
 )
-def test_student_cannot_access_deerflow_control_endpoints(
+def test_deerflow_endpoints_accessible_to_students(
     client,
     method,
     path,
     json,
+    needs_auth,
 ):
-    current = register_and_login(client, name="普通学生", email="student@example.com")
+    if needs_auth:
+        current = register_and_login(client, name="普通学生", email="student@example.com")
+        response = client.request(method, path, headers=current["headers"], json=json)
+    else:
+        response = client.request(method, path, json=json)
 
-    response = client.request(method, path, headers=current["headers"], json=json)
-
-    assert response.status_code == 403
+    assert response.status_code != 403

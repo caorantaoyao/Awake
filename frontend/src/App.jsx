@@ -1,9 +1,11 @@
 import { BrowserRouter as Router, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import RequireAuth from './components/RequireAuth';
 import WorkspaceLayout from './layouts/WorkspaceLayout';
 import Landing from './pages/Landing';
 import Register from './pages/Register';
 import Login from './pages/Login';
 import Success from './pages/Success';
+import Onboarding from './pages/Onboarding';
 import CheckIn from './pages/CheckIn';
 import Chat from './pages/Chat';
 import Tasks from './pages/Tasks';
@@ -12,6 +14,7 @@ import Today from './pages/Today';
 import Explore from './pages/Explore';
 import Growth from './pages/Growth';
 import Focus from './pages/Focus';
+import Capabilities from './pages/Capabilities';
 
 const LEGACY_CHAT_PATH = '/app/chat';
 const WORKSPACE_TODAY_PATH = '/app/today';
@@ -46,18 +49,21 @@ function App() {
         <Route path="/chat" element={<LegacyChatRedirect />} />
         <Route path="/checkin" element={<LegacyCheckInRedirect />} />
         <Route path="/checkin/demo" element={<LegacyCheckInRedirect demo />} />
-        <Route path="/app" element={<WorkspaceLayout />}>
-          <Route index element={<WorkspaceTodayRedirect />} />
-          <Route path="today" element={<Today />} />
-          <Route path="chat" element={<Chat />} />
-          <Route path="tasks" element={<Tasks />} />
-          <Route path="focus" element={<Focus />} />
-          <Route path="checkin" element={<CheckIn />} />
-          <Route path="explore" element={<Explore />} />
-          <Route path="growth" element={<Growth />} />
-          <Route path="capabilities" element={<WorkspaceTodayRedirect />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="*" element={<WorkspaceTodayRedirect />} />
+        <Route element={<RequireAuth />}>
+          <Route path="/onboarding" element={<Onboarding />} />
+          <Route path="/app" element={<WorkspaceLayout />}>
+            <Route index element={<WorkspaceTodayRedirect />} />
+            <Route path="today" element={<Today />} />
+            <Route path="chat" element={<Chat />} />
+            <Route path="tasks" element={<Tasks />} />
+            <Route path="focus" element={<Focus />} />
+            <Route path="checkin" element={<CheckIn />} />
+            <Route path="explore" element={<Explore />} />
+            <Route path="growth" element={<Growth />} />
+            <Route path="capabilities" element={<Capabilities />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="*" element={<WorkspaceTodayRedirect />} />
+          </Route>
         </Route>
       </Routes>
     </Router>

@@ -72,6 +72,7 @@ def migrate_growth_schema(engine: Engine) -> None:
                 ability_tags TEXT NOT NULL DEFAULT '[]',
                 exploration_stage VARCHAR(50) NOT NULL DEFAULT '探索中',
                 summary TEXT NOT NULL DEFAULT '',
+                welcome_message TEXT NOT NULL DEFAULT '',
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(student_id) REFERENCES students(id)
@@ -138,4 +139,76 @@ def migrate_growth_schema(engine: Engine) -> None:
         connection.execute(text(
             "CREATE INDEX IF NOT EXISTS ix_growth_events_task_id "
             "ON growth_events (task_id)"
+        ))
+
+
+def migrate_student_preferences(engine: Engine) -> None:
+    with engine.begin() as connection:
+        if not _table_exists(connection, "students"):
+            return
+
+        columns = {row[1] for row in connection.execute(text("PRAGMA table_info(students)"))}
+        if "chat_mode" not in columns:
+            connection.execute(text(
+                "ALTER TABLE students ADD COLUMN chat_mode VARCHAR(20) "
+                "NOT NULL DEFAULT 'explore_first'"
+            ))
+        if "unlock_after_turns" not in columns:
+            connection.execute(text(
+                "ALTER TABLE students ADD COLUMN unlock_after_turns "
+                "INTEGER NOT NULL DEFAULT 3"
+            ))
+
+
+def migrate_onboarding(engine: Engine) -> None:
+    with engine.begin() as connection:
+        if not _table_exists(connection, "students"):
+            return
+
+        columns = {row[1] for row in connection.execute(text("PRAGMA table_info(students)"))}
+        if "onboarding_completed" not in columns:
+            connection.execute(text(
+                "ALTER TABLE students ADD COLUMN onboarding_completed "
+                "BOOLEAN NOT NULL DEFAULT 0"
+            ))
+
+
+def migrate_profile_welcome_message(engine: Engine) -> None:
+    with engine.begin() as connection:
+        if not _table_exists(connection, "student_profiles"):
+            return
+        columns = {row[1] for row in connection.execute(text("PRAGMA table_info(student_profiles)"))}
+        if "welcome_message" not in columns:
+            connection.execute(text(
+                "ALTER TABLE student_profiles ADD COLUMN welcome_message "
+                "TEXT NOT NULL DEFAULT ''"
+            ))
+
+
+def migrate_conversations(engine: Engine) -> None:
+    with engine.begin() as connection:
+        if _table_exists(connection, "conversations"):
+            return
+        connection.execute(text("""
+            CREATE TABLE IF NOT EXISTS conversations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_id INTEGER NOT NULL,
+                thread_id VARCHAR(100) NOT NULL UNIQUE,
+                title VARCHAR(200) NOT NULL DEFAULT '新对话',
+                model_name VARCHAR(100),
+                thinking_enabled BOOLEAN NOT NULL DEFAULT 0,
+                is_plan_mode BOOLEAN NOT NULL DEFAULT 0,
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(student_id) REFERENCES students(id)
+            )
+        """))
+        connection.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_conversations_student_id "
+            "ON conversations (student_id)"
+        ))
+        connection.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_conversations_thread_id "
+            "ON conversations (thread_id)"
         ))

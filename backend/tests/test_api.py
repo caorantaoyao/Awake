@@ -392,8 +392,14 @@ class TestChatAPI:
         })
         authenticate(client, "chat@example.com")
 
-    def test_chat_returns_mock_reply(self, client):
+    def _mock_deerflow_chat(self, monkeypatch):
+        async def fake_chat(messages, student_name, **kwargs):
+            return {"reply": "这是测试回复", "mode": "deerflow", "thread_id": "test-thread-123"}
+        monkeypatch.setattr("app.api.routes.deerflow_service.chat", fake_chat)
+
+    def test_chat_returns_reply(self, client, monkeypatch):
         self._authenticate_student(client)
+        self._mock_deerflow_chat(monkeypatch)
         response = client.post("/api/chat", json={
             "messages": [
                 {"role": "user", "content": "我最近有点迷茫，不知道该做什么。"}
@@ -403,14 +409,14 @@ class TestChatAPI:
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
-        assert data["mode"] == "mock"
+        assert data["mode"] == "deerflow"
         assert isinstance(data["reply"], str)
         assert len(data["reply"]) > 0
-        # 只有 1 轮 user 消息，尚未达到可提炼任务的阈值
         assert data["can_extract_task"] is False
 
-    def test_chat_can_extract_after_three_turns(self, client):
+    def test_chat_can_extract_after_three_turns(self, client, monkeypatch):
         self._authenticate_student(client)
+        self._mock_deerflow_chat(monkeypatch)
         response = client.post("/api/chat", json={
             "messages": [
                 {"role": "user", "content": "我最近对画画挺感兴趣的。"},
@@ -424,21 +430,21 @@ class TestChatAPI:
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
-        assert data["mode"] == "mock"
+        assert data["mode"] == "deerflow"
         assert isinstance(data["reply"], str)
         assert len(data["reply"]) > 0
-        # 3 条 user 消息，达到可提炼任务的阈值
         assert data["can_extract_task"] is True
 
-    def test_chat_empty_messages(self, client):
+    def test_chat_empty_messages(self, client, monkeypatch):
         self._authenticate_student(client)
+        self._mock_deerflow_chat(monkeypatch)
         response = client.post("/api/chat", json={
             "messages": []
         })
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
-        assert data["mode"] == "mock"
+        assert data["mode"] == "deerflow"
         assert isinstance(data["reply"], str)
         assert len(data["reply"]) > 0
         assert data["can_extract_task"] is False
@@ -456,9 +462,25 @@ class TestExtractTaskAPI:
         authenticate(client, email)
         return response
 
-    def test_extract_task_success(self, client):
+    def _mock_extract_task(self, monkeypatch):
+        async def fake_extract_task(messages, student_name, **kwargs):
+            return {
+                "title": "探索任务",
+                "description": "完成一次小尝试",
+                "rationale": "通过实践探索兴趣",
+                "estimated_minutes": 15,
+                "growth_points": 10,
+                "topic_tags": ["兴趣探索"],
+                "completion_criteria": ["完成任务"],
+                "reflection_prompt": "有什么收获？",
+                "safety_notes": [],
+            }
+        monkeypatch.setattr("app.api.routes.deerflow_service.extract_task", fake_extract_task)
+
+    def test_extract_task_success(self, client, monkeypatch):
         email = "chat_student@example.com"
         self._register_student(client, email)
+        self._mock_extract_task(monkeypatch)
         response = client.post("/api/chat/extract-task", json={
             "student_email": email,
             "messages": [
@@ -476,8 +498,9 @@ class TestExtractTaskAPI:
         assert task["status"] == "进行中"
         assert "id" in task
 
-    def test_extract_task_ignores_nonexistent_student_email(self, client):
+    def test_extract_task_ignores_nonexistent_student_email(self, client, monkeypatch):
         student = self._register_student(client)
+        self._mock_extract_task(monkeypatch)
         response = client.post("/api/chat/extract-task", json={
             "student_email": "nonexistent@example.com",
             "messages": [

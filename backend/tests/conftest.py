@@ -7,7 +7,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# 测试环境隔离外部服务：不打真实 SMTP，不连本地 DeerFlow（走 mock 苏格拉底逻辑）。
+# 测试环境隔离外部服务：不打真实 SMTP，禁用 DeerFlow（测试中用 monkeypatch mock deerflow_service 方法）。
 # 必须在导入 main（触发 settings 实例化）之前设置；环境变量优先级高于 .env。
 os.environ["SMTP_ENABLED"] = "false"
 os.environ["DEERFLOW_ENABLED"] = "false"

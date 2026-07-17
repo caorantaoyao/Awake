@@ -76,6 +76,7 @@ def test_empty_profile_has_stable_shape_without_persisting_fake_insights(
         "ability_tags": [],
         "exploration_stage": "探索中",
         "summary": "",
+        "welcome_message": "",
         "updated_at": None,
         "is_empty": True,
         "guidance": "和小海聊聊你的兴趣与经历，逐步形成成长画像。",
@@ -137,8 +138,8 @@ def test_chat_persists_each_new_exchange_and_history_restores_in_order(
     )
     replies = iter(["第一次回复", "第二次回复"])
 
-    async def fake_chat(messages, student_name):
-        return {"reply": next(replies), "mode": "mock"}
+    async def fake_chat(messages, student_name, **kwargs):
+        return {"reply": next(replies), "mode": "deerflow", "thread_id": "test-thread"}
 
     monkeypatch.setattr("app.api.routes.deerflow_service.chat", fake_chat)
 
@@ -184,9 +185,9 @@ def test_chat_persists_bootstrap_reply_so_refresh_does_not_repeat_welcome(
         email="bootstrap-history@example.com",
     )
 
-    async def fake_chat(messages, student_name):
+    async def fake_chat(messages, student_name, **kwargs):
         assert messages == []
-        return {"reply": "首次欢迎", "mode": "mock"}
+        return {"reply": "首次欢迎", "mode": "deerflow", "thread_id": "test-thread"}
 
     monkeypatch.setattr("app.api.routes.deerflow_service.chat", fake_chat)
 

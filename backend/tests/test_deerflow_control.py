@@ -95,13 +95,10 @@ async def test_skill_toggle_falls_back_when_deerflow_unreachable(monkeypatch):
 @pytest.mark.parametrize(
     ("method", "path", "json"),
     [
-        ("get", "/api/deerflow/status", None),
-        ("get", "/api/deerflow/skills", None),
-        ("get", "/api/deerflow/models", None),
         ("put", "/api/deerflow/skills/search", {"enabled": True}),
     ],
 )
-def test_deerflow_control_endpoints_require_authentication(
+def test_deerflow_control_write_endpoints_require_authentication(
     client,
     method,
     path,
@@ -110,3 +107,21 @@ def test_deerflow_control_endpoints_require_authentication(
     response = client.request(method, path, json=json)
 
     assert response.status_code == 401
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("get", "/api/deerflow/status"),
+        ("get", "/api/deerflow/skills"),
+        ("get", "/api/deerflow/models"),
+    ],
+)
+def test_deerflow_read_endpoints_do_not_require_authentication(
+    client,
+    method,
+    path,
+):
+    response = client.request(method, path)
+
+    assert response.status_code != 401
