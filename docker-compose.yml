@@ -1,4 +1,57 @@
 services:
+  # ── Redis (DeerFlow SSE stream bridge) ──────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - deerflow_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - awaken
+    restart: unless-stopped
+
+  # ── DeerFlow 2.0 Gateway (AI Agent Engine) ──────────────────────────────
+  deerflow:
+    build:
+      context: ./deer-flow
+      dockerfile: backend/Dockerfile
+    environment:
+      DEER_FLOW_AUTH_DISABLED: "1"
+      CI: "true"
+      DEER_FLOW_PROJECT_ROOT: /app
+      DEER_FLOW_HOME: /app/backend/.deer-flow
+      DEER_FLOW_CONFIG_PATH: /app/backend/config.yaml
+      DEER_FLOW_EXTENSIONS_CONFIG_PATH: /app/backend/extensions_config.json
+      DEER_FLOW_STREAM_BRIDGE_REDIS_URL: redis://redis:6379/0
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      LANGSMITH_TRACING: "false"
+    volumes:
+      - ./docker/deerflow/config.yaml:/app/backend/config.yaml:ro
+      - ./docker/deerflow/extensions_config.json:/app/backend/extensions_config.json:ro
+      - ./deer-flow/skills:/app/skills:ro
+      - deerflow_data:/app/backend/.deer-flow
+    working_dir: /app
+    command: >
+      sh -c "cd backend && PYTHONPATH=. uv run --no-sync uvicorn app.gateway.app:app
+      --host 0.0.0.0 --port 8001"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - awaken
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/api/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── Awaken Backend (FastAPI) ────────────────────────────────────────────
   backend:
     build:
       context: .
@@ -18,10 +71,10 @@ services:
       FEISHU_ENABLED: ${FEISHU_ENABLED:-false}
       FEISHU_WEBHOOK_REGISTER: ${FEISHU_WEBHOOK_REGISTER:-}
       FEISHU_WEBHOOK_TASK_COMPLETE: ${FEISHU_WEBHOOK_TASK_COMPLETE:-}
-      DEERFLOW_ENABLED: ${DEERFLOW_ENABLED:-false}
-      DEERFLOW_BASE_URL: ${DEERFLOW_BASE_URL:-http://host.docker.internal:8001}
-      DEERFLOW_ASSISTANT_ID: ${DEERFLOW_ASSISTANT_ID:-lead_agent}
-      DEERFLOW_API_KEY: ${DEERFLOW_API_KEY:-}
+      DEERFLOW_ENABLED: "true"
+      DEERFLOW_BASE_URL: http://deerflow:8001
+      DEERFLOW_ASSISTANT_ID: lead_agent
+      DEERFLOW_API_KEY: ""
       DEERFLOW_CONTROL_TIMEOUT_SECONDS: ${DEERFLOW_CONTROL_TIMEOUT_SECONDS:-60}
       XIAOHAI_UNLOCK_AFTER_TURNS: ${XIAOHAI_UNLOCK_AFTER_TURNS:-3}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:7777}
@@ -30,24 +83,31 @@ services:
       - "8000:8000"
     volumes:
       - awaken_backend_data:/app/data
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+    depends_on:
+      deerflow:
+        condition: service_healthy
+    networks:
+      - awaken
     restart: unless-stopped
 
+  # ── Awaken Frontend (Nginx + React SPA) ─────────────────────────────────
   frontend:
     build:
       context: .
       dockerfile: frontend/Dockerfile
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
     ports:
       - "7777:80"
+    networks:
+      - awaken
     restart: unless-stopped
 
 volumes:
   awaken_backend_data:
+  deerflow_redis_data:
+  deerflow_data:
+
+networks:
+  awaken:
+    driver: bridge

@@ -1,0 +1,178 @@
+config_version: 25
+log_level: info
+
+models:
+  - name: deepseek-chat
+    display_name: DeepSeek Chat
+    use: deerflow.models.patched_deepseek:PatchedChatDeepSeek
+    model: deepseek-chat
+    api_base: https://api.deepseek.com
+    api_key: $DEEPSEEK_API_KEY
+    request_timeout: 120.0
+    max_retries: 2
+    temperature: 0.7
+    supports_thinking: false
+    supports_vision: false
+
+tool_groups:
+  - name: web
+  - name: file:read
+  - name: file:write
+  - name: bash
+
+tools:
+  - name: web_search
+    group: web
+    use: deerflow.community.ddg_search.tools:web_search_tool
+    max_results: 5
+  - name: web_fetch
+    group: web
+    use: deerflow.community.jina_ai.tools:web_fetch_tool
+    timeout: 10
+  - name: image_search
+    group: web
+    use: deerflow.community.image_search.tools:image_search_tool
+    max_results: 5
+  - name: ls
+    group: file:read
+    use: deerflow.sandbox.tools:ls_tool
+  - name: read_file
+    group: file:read
+    use: deerflow.sandbox.tools:read_file_tool
+  - name: glob
+    group: file:read
+    use: deerflow.sandbox.tools:glob_tool
+    max_results: 200
+  - name: grep
+    group: file:read
+    use: deerflow.sandbox.tools:grep_tool
+    max_results: 100
+  - name: write_file
+    group: file:write
+    use: deerflow.sandbox.tools:write_file_tool
+  - name: str_replace
+    group: file:write
+    use: deerflow.sandbox.tools:str_replace_tool
+  - name: bash
+    group: bash
+    use: deerflow.sandbox.tools:bash_tool
+
+sandbox:
+  use: deerflow.sandbox.local:LocalSandboxProvider
+  allow_host_bash: false
+  bash_output_max_chars: 20000
+  read_file_output_max_chars: 50000
+  ls_output_max_chars: 20000
+  bash_command_timeout: 600
+
+uploads:
+  max_files: 10
+  max_file_size: 52428800
+  max_total_size: 104857600
+  auto_convert_documents: false
+  pdf_converter: auto
+
+token_usage:
+  enabled: true
+
+suggestions:
+  enabled: true
+
+input_polish:
+  enabled: true
+  max_chars: 4000
+  model_name: null
+
+loop_detection:
+  enabled: true
+  warn_threshold: 3
+  hard_limit: 5
+  window_size: 20
+  max_tracked_threads: 100
+  tool_freq_warn: 30
+  tool_freq_hard_limit: 50
+
+read_before_write:
+  enabled: true
+
+safety_finish_reason:
+  enabled: true
+
+tool_output:
+  enabled: true
+  externalize_min_chars: 12000
+  preview_head_chars: 2000
+  preview_tail_chars: 1000
+  fallback_max_chars: 30000
+  fallback_head_chars: 8000
+  fallback_tail_chars: 3000
+  storage_subdir: ".tool-results"
+  exempt_tools:
+    - read_file
+    - read_file_tool
+
+tool_search:
+  enabled: false
+  auto_promote_top_k: 3
+
+title:
+  enabled: true
+  max_words: 6
+  max_chars: 60
+  model_name: null
+
+summarization:
+  enabled: true
+  model_name: null
+  trigger:
+    - type: tokens
+      value: 32000
+  keep:
+    type: messages
+    value: 10
+  trim_tokens_to_summarize: 15564
+  summary_prompt: null
+
+memory:
+  enabled: true
+  injection_enabled: true
+  manager_class: deermem
+  mode: middleware
+  backend_config:
+    storage_path: ""
+    debounce_seconds: 30
+    model: null
+    max_facts: 100
+    fact_confidence_threshold: 0.7
+    max_injection_tokens: 2000
+    token_counting: tiktoken
+    guaranteed_categories:
+      - correction
+    guaranteed_token_budget: 500
+    staleness_review_enabled: true
+    staleness_age_days: 90
+    staleness_min_candidates: 3
+    staleness_max_removals_per_cycle: 10
+    staleness_protected_categories:
+      - correction
+    consolidation_enabled: false
+
+database:
+  backend: sqlite
+  sqlite_dir: .deer-flow/data
+
+run_events:
+  backend: memory
+  max_trace_content: 10240
+  track_token_usage: true
+
+authorization:
+  enabled: false
+
+skills:
+  container_path: /app/skills
+
+skill_scan:
+  enabled: true
+
+max_recursion_limit: 1000
