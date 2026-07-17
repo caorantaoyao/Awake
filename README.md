@@ -1,91 +1,78 @@
-# Awaken MVP
+# Awaken
 
-Awaken 是一个 AI 生涯成长产品 MVP。核心角色「小海」通过苏格拉底式对话帮助高中生探索兴趣与职业方向，并把对话沉淀为今天就能完成的微行动任务。
+AI 生涯成长产品。核心角色「小海」通过对话帮助高中生探索兴趣与职业方向，并把对话沉淀为「今天就能完成」的微行动任务（5–30 分钟）。
+
+## 架构概览
+
+```text
+┌──────────────┐      ┌──────────────┐      ┌──────────────┐
+│  React SPA   │ ───► │  FastAPI     │ ───► │  DeerFlow 2.0│
+│  (Nginx/Vite)│ /api │  (单体后端)  │ SSE  │  (LangGraph) │
+│  端口 7777   │      │  端口 8000   │      │  端口 8001   │
+└──────────────┘      └──────────────┘      └──────────────│
+                              │                           │
+                              ▼                           ▼
+                        ┌──────────┐               ┌──────────┐
+                        │ SQLite   │               │ 工具/MCP │
+                        └──────────┘               └──────────┘
+```
+
+- **本仓库**：FastAPI 单体后端 + React/Vite SPA。
+- **DeerFlow**：独立外部引擎（运行于 `:8001`），负责大模型推理、工具调用、记忆、联网搜索；本仓库通过 HTTP/SSE 调用，**不包含** DeerFlow 源码（`.gitignore` 排除 `deer-flow/`）。
+- **鉴权**：邮箱+密码注册登录（PBKDF2_SHA256 密码哈希），JWT Bearer Token，所有业务接口校验学生身份归属。
 
 ## 项目结构
 
 ```text
 .
-├── backend/              # FastAPI API 服务、SQLite 数据模型、对话编排
-├── frontend/             # React + Vite 单页应用
-├── docs/                 # 产品与技术方案文档
-├── docker-compose.yml    # 本地 Docker 一键启动编排
-└── AGENTS.md             # 面向 AI Agent 的项目规则与代码地图
+├── backend/                  # FastAPI 服务
+│   ├── main.py               # 入口 & CORS
+│   ├── app/
+│   │   ├── api/routes.py     # 全部 HTTP 路由 + 鉴权依赖
+│   │   ├── core/             # 配置、数据库、迁移
+│   │   ├── models/           # SQLAlchemy ORM（学生、任务、会话、成长事件）
+│   │   ├── schemas/          # Pydantic 请求/响应契约
+│   │   └── services/         # DeerFlow 适配、鉴权、通知
+│   ├── tests/                # pytest（99+ 用例）
+│   └── Dockerfile            # python:3.11-slim
+├── frontend/                 # React 18 + Vite SPA
+│   ├── src/
+│   │   ├── pages/            # Chat、Onboarding、Today、Tasks、Capabilities...
+│   │   ├── components/       # Sidebar、ContextBar、RequireAuth...
+│   │   ├── api/client.js     # Axios 客户端 + token 拦截器
+│   │   ├── config/onboarding.js  # 引导步骤配置
+│   │   └── styles/global.css # Codex 风格全局样式
+│   ├── nginx.conf            # SPA fallback + /api/ 反向代理
+│   └── Dockerfile            # 多阶段构建 node:20-alpine → nginx:1.27-alpine
+├── docs/                     # 产品与技术方案文档
+├── docker-compose.yml        # 本地 Docker 一键启动
+└── AGENTS.md                 # 面向 AI Agent 的项目规则与代码地图
 ```
 
-`deer-flow/` 是外部独立仓库，不属于本版本库。Awaken 只通过 HTTP 调用本机或外部 DeerFlow 服务；当 DeerFlow 不可用时，后端会降级到 mock 对话。
+## 核心功能
 
-## 技术栈
+| 模块 | 说明 |
+|---|---|
+| 注册/登录 | 邮箱+密码，JWT，PBKDF2_SHA256（260k 迭代） |
+| Onboarding 引导 | 三步式标签选择（兴趣/困惑/学习偏好），结果写入 StudentProfile |
+| 对话（Chat） | SSE 流式打字机渲染，支持思考链、计划模式、产出物卡片、Markdown/GFM |
+| 会话管理 | 多 Thread CRUD，模型切换，思考/计划模式开关 |
+| 微行动任务 | 3 轮对话后可提炼结构化任务；estimated_minutes 强制 5–30 分钟（代码 clamp + DB CheckConstraint） |
+| 打卡/成长记录 | 任务打卡、GrowthEvent 时间线、成长摘要 |
+| 文件上传 | 对话中上传文件，随消息携带 file_ids |
+| 输入润色 | 魔法棒按钮一键润色输入内容 |
+| 反馈 | 消息 👍/👎 反馈 |
+| 能力控制 | Skills 开关、模型列表、MCP 服务器、Run 历史、定时任务（内部联调用，学生账号 403） |
 
-- 前端：React 18、Vite、Axios、React Router
-- 后端：FastAPI、SQLAlchemy、SQLite、JWT
-- 可选下游：DeerFlow 2.0、QQ SMTP、飞书 Webhook
-- 容器化：Docker Compose、Nginx、Python 3.11
+## 快速开始
 
-## Docker 本地启动
+### 前置依赖
 
-确保本机已安装 Docker Desktop 或 Docker Engine，然后在仓库根目录执行：
+- Python 3.11+
+- Node.js 20+
+- DeerFlow 2.0 运行在 `http://localhost:8001`（可选，但关闭后对话不可用）
 
-```bash
-docker compose up --build
-```
-
-启动后访问：
-
-- 前端应用：`http://localhost:3000`
-- 后端 API 文档：`http://localhost:8000/docs`
-- 健康检查：`http://localhost:3000/health` 或 `http://localhost:8000/api/health`
-
-默认配置下：
-
-- SQLite 数据保存在 Docker volume `awaken_backend_data` 中。
-- `DEERFLOW_ENABLED=false`，对话链路走 mock 降级，适合直接本地体验。
-- 前端容器通过 Nginx 将 `/api/*` 反向代理到后端容器。
-
-停止服务：
-
-```bash
-docker compose down
-```
-
-如果需要同时删除本地容器数据库：
-
-```bash
-docker compose down -v
-```
-
-## 连接本机 DeerFlow
-
-如果你已经在宿主机启动 DeerFlow，并监听 `8001` 端口，可以这样启动 Awaken：
-
-```bash
-DEERFLOW_ENABLED=true \
-DEERFLOW_BASE_URL=http://host.docker.internal:8001 \
-DEERFLOW_ASSISTANT_ID=lead_agent \
-docker compose up --build
-```
-
-如果 DeerFlow 开启了鉴权，再额外传入：
-
-```bash
-DEERFLOW_API_KEY=your-api-key docker compose up --build
-```
-
-## 常用环境变量
-
-| 变量 | 默认值 | 说明 |
-| --- | --- | --- |
-| `AUTH_SECRET_KEY` | `awaken-dev-secret-change-me` | JWT 签名密钥，本地可用默认值，公开部署必须替换 |
-| `DATABASE_URL` | `sqlite:///./data/awaken.db` | Docker 内默认 SQLite 路径 |
-| `SMTP_ENABLED` | `false` | 是否启用 QQ SMTP 邮件 |
-| `FEISHU_ENABLED` | `false` | 是否启用飞书 Webhook |
-| `DEERFLOW_ENABLED` | `false` | 是否启用 DeerFlow 对话引擎 |
-| `DEERFLOW_BASE_URL` | `http://host.docker.internal:8001` | Docker 中访问宿主机 DeerFlow 的地址 |
-| `FRONTEND_URL` | `http://localhost:3000` | 邮件和跳转链接使用的前端地址 |
-
-更多后端配置参考 `backend/.env.example`。
-
-## 非 Docker 开发
+### 本地开发
 
 后端：
 
@@ -102,56 +89,80 @@ uvicorn main:app --reload --port 8000
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev   # http://localhost:7777
 ```
 
-本地开发地址：
+访问：
 
-- 前端：`http://localhost:3000`
-- 后端：`http://localhost:8000`
+- 前端：http://localhost:7777
+- 后端 API 文档：http://localhost:8000/docs
+- 健康检查：http://localhost:8000/api/health
 
-## 测试与构建
-
-后端单测：
-
-```bash
-cd backend
-pytest
-```
-
-前端构建：
+### Docker Compose
 
 ```bash
-cd frontend
-npm run build
-```
-
-Docker 构建与启动验证：
-
-```bash
-docker compose config
 docker compose up --build
 ```
 
-## 当前安全边界
+启动后访问：
 
-项目已有邮箱登录、JWT 签发、`GET /api/auth/me` token 校验和前端 token 拦截器。
+- 前端：http://localhost:7777
+- 后端 API：http://localhost:8000
+- 健康检查：http://localhost:7777/health（前端 Nginx）或 http://localhost:8000/api/health
 
-仍需注意：部分业务接口仍兼容旧的邮箱参数入口，尚未全部强制 `Depends(get_current_student)`。在公开部署或写入敏感个人信息前，应先补完业务接口鉴权。
-
-## GitHub 发布
-
-当前仓库远端为：
+连接本机 DeerFlow 启动：
 
 ```bash
-git remote -v
+DEERFLOW_ENABLED=true \
+DEERFLOW_BASE_URL=http://host.docker.internal:8001 \
+docker compose up --build
 ```
 
-常规发布流程：
+停止并清理数据卷：
 
 ```bash
-git status --short
-git add .
-git commit -m "chore: add docker local startup"
-git push origin master
+docker compose down -v
 ```
+
+## 环境变量
+
+| 变量 | 默认值 | 说明 |
+|---|---|---|
+| `AUTH_SECRET_KEY` | `awaken-dev-secret-change-me` | JWT 签名密钥，**公开部署必须替换** |
+| `DATABASE_URL` | `sqlite:///./awaken.db`（本地）/ `sqlite:///./data/awaken.db`（Docker） | 数据库连接 |
+| `DEERFLOW_ENABLED` | `false` | 是否连接 DeerFlow 引擎（对话必须） |
+| `DEERFLOW_BASE_URL` | `http://localhost:8001`（本地）/ `http://host.docker.internal:8001`（Docker） | DeerFlow 地址 |
+| `DEERFLOW_ASSISTANT_ID` | `lead_agent` | DeerFlow assistant ID |
+| `DEERFLOW_API_KEY` | _(空)_ | DeerFlow Bearer Token（如开启鉴权） |
+| `DEERFLOW_CONTROL_TIMEOUT_SECONDS` | `60` | DeerFlow 控制接口超时 |
+| `SMTP_ENABLED` | `false` | 启用 QQ SMTP 邮件通知 |
+| `FEISHU_ENABLED` | `false` | 启用飞书 Webhook 通知 |
+| `FRONTEND_URL` | `http://localhost:7777` | 邮件和跳转链接中的前端地址 |
+| `XIAOHAI_UNLOCK_AFTER_TURNS` | `3` | 多少轮对话后可提炼微行动 |
+
+## 测试
+
+```bash
+cd backend && pytest          # 后端单测（自动隔离 SMTP/DeerFlow）
+cd frontend && npm run build  # 前端构建验证
+```
+
+## 关键约束（开发必读）
+
+1. **DeerFlow 是外部服务**：对话链路不做 mock 降级，DeerFlow 不可达时返回 503；控制接口优雅降级返回空数据。
+2. **资源归属以 token 为准**：不信任请求体中的学生身份，所有接口从 JWT 解析当前学生。
+3. **前端零额外 UI 库**：不引入 AntD/MUI/Redux/Zustand，使用原生 React Hooks + 手写 CSS。
+4. **微行动时间硬约束**：estimated_minutes 在代码层 clamp(5,30)，数据库层有 CheckConstraint。
+5. **提示词修改需新会话**：LangGraph 有 thread 缓存，改 system prompt 后必须新建会话生效。
+6. **超时链路一致**：前端 chat 130s ≥ Nginx proxy 130s ≥ 后端 httpx 120s；control 接口独立 60s。
+
+## 技术栈
+
+- **前端**：React 18、Vite 5、React Router v6、Axios、react-markdown、remark-gfm
+- **后端**：FastAPI、SQLAlchemy、SQLite、Pydantic v2、PyJWT、httpx
+- **容器**：Docker Compose、Nginx 1.27（前端）、Python 3.11-slim（后端）
+- **下游**：DeerFlow 2.0（LangGraph）、QQ SMTP、飞书 Webhook
+
+## License
+
+MIT

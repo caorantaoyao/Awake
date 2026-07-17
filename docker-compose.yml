@@ -23,21 +23,31 @@ services:
       DEERFLOW_ASSISTANT_ID: ${DEERFLOW_ASSISTANT_ID:-lead_agent}
       DEERFLOW_API_KEY: ${DEERFLOW_API_KEY:-}
       DEERFLOW_CONTROL_TIMEOUT_SECONDS: ${DEERFLOW_CONTROL_TIMEOUT_SECONDS:-60}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
-      BACKEND_CORS_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000"]'
+      XIAOHAI_UNLOCK_AFTER_TURNS: ${XIAOHAI_UNLOCK_AFTER_TURNS:-3}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:7777}
+      BACKEND_CORS_ORIGINS: '["http://localhost:7777","http://127.0.0.1:7777"]'
     ports:
       - "8000:8000"
     volumes:
       - awaken_backend_data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
 
   frontend:
     build:
       context: .
       dockerfile: frontend/Dockerfile
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
-      - "3000:80"
+      - "7777:80"
+    restart: unless-stopped
 
 volumes:
   awaken_backend_data:
