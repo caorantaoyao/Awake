@@ -1,0 +1,168 @@
+README.md
+  s_e135dc08f533dd::t_0f67e7655083da 1,3,9-10,12,25,28,31,34-38,40-43,45-48,50,52-56,58-60 gitai:{"mixed_line_ranges":[],"operations":[{"operation_id":"6a5a3f72d914ef506a6a0a52","tool_type":"agent","tool_id":"Write","line_ranges":[{"Single":1},{"Single":3},{"Range":[9,10]},{"Single":12},{"Single":25},{"Single":28},{"Single":31},{"Range":[34,38]},{"Range":[40,43]},{"Range":[45,48]},{"Single":50},{"Range":[52,56]},{"Range":[58,60]}]}]}
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "59f897374d4b7112a46e509fe3d8332efc2d871f",
+  "prompts": {},
+  "sessions": {
+    "s_e135dc08f533dd": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a57b03b1f0d7fb9b93cbfd6",
+        "model": "Doubao-Seed-2.1-Pro__dev"
+      },
+      "human_author": "caoran.taoyao <caoran.taoyao@bytedance.com>"
+    }
+  },
+  "attestation_metadata": {
+    "README.md": [
+      {
+        "hash": "s_e135dc08f533dd::t_0f67e7655083da",
+        "line_ranges": [
+          {
+            "Single": 1
+          },
+          {
+            "Single": 3
+          },
+          {
+            "Range": [
+              9,
+              10
+            ]
+          },
+          {
+            "Single": 12
+          },
+          {
+            "Single": 25
+          },
+          {
+            "Single": 28
+          },
+          {
+            "Single": 31
+          },
+          {
+            "Range": [
+              34,
+              38
+            ]
+          },
+          {
+            "Range": [
+              40,
+              43
+            ]
+          },
+          {
+            "Range": [
+              45,
+              48
+            ]
+          },
+          {
+            "Single": 50
+          },
+          {
+            "Range": [
+              52,
+              56
+            ]
+          },
+          {
+            "Range": [
+              58,
+              60
+            ]
+          }
+        ],
+        "mixed_line_ranges": [],
+        "operations": [
+          {
+            "operation_id": "6a5a3f72d914ef506a6a0a52",
+            "tool_type": "agent",
+            "tool_id": "Write",
+            "line_ranges": [
+              {
+                "Single": 1
+              },
+              {
+                "Single": 3
+              },
+              {
+                "Range": [
+                  9,
+                  10
+                ]
+              },
+              {
+                "Single": 12
+              },
+              {
+                "Single": 25
+              },
+              {
+                "Single": 28
+              },
+              {
+                "Single": 31
+              },
+              {
+                "Range": [
+                  34,
+                  38
+                ]
+              },
+              {
+                "Range": [
+                  40,
+                  43
+                ]
+              },
+              {
+                "Range": [
+                  45,
+                  48
+                ]
+              },
+              {
+                "Single": 50
+              },
+              {
+                "Range": [
+                  52,
+                  56
+                ]
+              },
+              {
+                "Range": [
+                  58,
+                  60
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "remote_transcripts": {
+    "s_e135dc08f533dd": {
+      "tool": "trae",
+      "conversation_id": "6a57b03b1f0d7fb9b93cbfd6",
+      "session_id": "6a57b03b1f0d7fb9b93cbfd6",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    },
+    "s_e135dc08f533dd::t_0f67e7655083da": {
+      "tool": "trae",
+      "conversation_id": "6a57b03b1f0d7fb9b93cbfd6",
+      "session_id": "6a57b03b1f0d7fb9b93cbfd6",
+      "status": "remote_only",
+      "message": "Remote transcript resolution is not implemented yet for TRAE prompts."
+    }
+  }
+}
