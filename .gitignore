@@ -1,5 +1,13 @@
-# DeerFlow 本地对话引擎（独立 clone，不纳入 Awaken 版本库）
-deer-flow/
+# deer-flow 作为 git submodule 纳入版本控制（根目录追踪 commit hash）
+# 以下排除 deer-flow 的本地配置、虚拟环境、运行产物
+/deer-flow/.env
+/deer-flow/backend/.venv/
+/deer-flow/.venv/
+/deer-flow/frontend/node_modules/
+/deer-flow/backend/.deer-flow/
+/deer-flow/config.yaml
+/deer-flow/extensions_config.json
+/deer-flow/conf.yaml
 
 # 依赖与虚拟环境
 backend/venv/
@@ -8,9 +16,6 @@ frontend/dist/
 
 # 密钥与本地配置
 backend/.env
-deer-flow/.env
-deer-flow/conf.yaml
-deer-flow/config.yaml
 
 # 本地数据库与缓存
 backend/*.db
